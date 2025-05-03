@@ -1,40 +1,35 @@
-//
-//  FitConnectApp.swift
-//  FitConnect
-//
-//  Created by Can Acar on 4/25/25.
-//
-
+// FitConnectApp.swift
 import SwiftUI
-import Firebase
+import Firebase           // Core + Auth + Firestore vs.
 import FirebaseAuth
-import FirebaseFirestore
+import FirebaseAppCheck   // (opsiyonel, App Check kullanacaksan)
 
 @main
 struct FitConnectApp: App {
-    @StateObject var session = SessionStore()
+  @StateObject private var session = SessionStore()
 
-    init() {
-        FirebaseApp.configure()
+  init() {
+    // 1) Firebase'i gerçek projenize karşı başlat
+    FirebaseApp.configure()
 
-        // ----------------------------------------
-        // EMULATOR KODUNUN ÇALIŞTIĞINDAN EMİN OL
-        Auth.auth().useEmulator(withHost: "127.0.0.1", port: 9099)
-        var settings = Firestore.firestore().settings
-        settings.host = "127.0.0.1:8080"
-        settings.isSSLEnabled = false
-        settings.cacheSettings = MemoryCacheSettings()
-        Firestore.firestore().settings = settings
-        // ----------------------------------------
+    // 2) Eğer App Check kullanacaksan (development modda hata alıyorsan)
+    AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
 
-        print("🔌 Using Auth emulator at 127.0.0.1:9099")
-        print("🔌 Using Firestore emulator at 127.0.0.1:8080")
+    // 3) (Üretime geçince bu emulator satırlarını tamamen sil)
+    // Auth.auth().useEmulator(withHost: "127.0.0.1", port: 9099)
+    // let settings = Firestore.firestore().settings
+    // settings.host = "127.0.0.1:8080"
+    // settings.isSSLEnabled = false
+    // Firestore.firestore().settings = settings
+
+    // DEBUG: isteğe bağlı önceki oturumu temizle
+    try? Auth.auth().signOut()
+  }
+
+  var body: some Scene {
+    WindowGroup {
+      ContentView()
+        .environmentObject(session)  // ← Burada ekli
     }
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(session)
-        }
-    }
+  }
 }

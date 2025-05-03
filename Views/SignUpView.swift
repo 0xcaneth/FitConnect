@@ -2,155 +2,101 @@
 import SwiftUI
 
 struct SignUpView: View {
-    @State private var fullName: String = ""
-    @State private var email: String = ""
-    @State private var password: String = ""
-    @State private var confirmPassword: String = ""
-    @State private var isPasswordVisible: Bool = false
-    @State private var isConfirmPasswordVisible: Bool = false
-    @State private var showingAlert: Bool = false
-    @State private var alertMessage: String = ""
+  let onSignUpComplete: () -> Void
+  let onBack:           () -> Void
 
-    var body: some View {
-        ZStack {
-            // Aynı gradyan arka plan
-            LinearGradient(
-                gradient: Gradient(colors: [ Color("PrimaryGradientStart"), Color("PrimaryGradientEnd") ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+  @State private var fullName        = ""
+  @State private var email           = ""
+  @State private var password        = ""
+  @State private var confirmPassword = ""
+  @State private var showingAlert    = false
+  @State private var alertMessage    = ""
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    Text("Create Account")
-                        .font(.largeTitle).bold()
-                        .foregroundColor(.white)
-                        .padding(.top, 40)
+  var body: some View {
+    NavigationStack {
+      ZStack {
+        LinearGradient(
+          colors: [Color("PrimaryGradientStart"), Color("PrimaryGradientEnd")],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
 
-                    // Input alanları
-                    Group {
-                        TextField("Full Name", text: $fullName)
-                            .padding()
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(8)
-                            .foregroundColor(.white)
+        ScrollView {
+          VStack(spacing: 24) {
+            Text("Create Account")
+              .font(.largeTitle).bold()
+              .foregroundColor(.white)
+              .padding(.top, 40)
 
-                        TextField("Email", text: $email)
-                            .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
-                            .padding()
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(8)
-                            .foregroundColor(.white)
+            Group {
+              TextField("Full Name", text: $fullName)
+              TextField("Email",     text: $email)
+                .keyboardType(.emailAddress)
+                .autocapitalization(.none)
 
-                        // Password
-                        HStack {
-                            Group {
-                                if isPasswordVisible {
-                                    TextField("Password", text: $password)
-                                } else {
-                                    SecureField("Password", text: $password)
-                                }
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(8)
-                            .foregroundColor(.white)
-
-                            Button {
-                                isPasswordVisible.toggle()
-                            } label: {
-                                Image(systemName: isPasswordVisible ? "eye.slash.fill" : "eye.fill")
-                                    .foregroundColor(.white)
-                            }
-                        }
-
-                        // Confirm Password
-                        HStack {
-                            Group {
-                                if isConfirmPasswordVisible {
-                                    TextField("Confirm Password", text: $confirmPassword)
-                                } else {
-                                    SecureField("Confirm Password", text: $confirmPassword)
-                                }
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(8)
-                            .foregroundColor(.white)
-
-                            Button {
-                                isConfirmPasswordVisible.toggle()
-                            } label: {
-                                Image(systemName: isConfirmPasswordVisible ? "eye.slash.fill" : "eye.fill")
-                                    .foregroundColor(.white)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 32)
-
-                    // Sign Up butonu
-                    Button(action: handleSignUp) {
-                        Text("Sign Up")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.white)
-                            .foregroundColor(Color("PrimaryGradientStart"))
-                            .cornerRadius(10)
-                    }
-                    .padding(.horizontal, 32)
-                    .alert(isPresented: $showingAlert) {
-                        Alert(title: Text("Sign Up Error"),
-                              message: Text(alertMessage),
-                              dismissButton: .default(Text("OK")))
-                    }
-
-                    Spacer()
-                }
+              SecureField("Password",        text: $password)
+              SecureField("Confirm Password",text: $confirmPassword)
             }
-        }
-    }
+            .padding()
+            .background(Color.white.opacity(0.2))
+            .cornerRadius(8)
+            .foregroundColor(.white)
+            .padding(.horizontal, 32)
 
-    private func handleSignUp() {
-        // Basit validasyon
-        guard !fullName.isEmpty else {
-            alertMessage = "Please enter your full name."
-            showingAlert = true
-            return
-        }
-        guard !email.isEmpty, email.contains("@") else {
-            alertMessage = "Please enter a valid email."
-            showingAlert = true
-            return
-        }
-        guard password.count >= 6 else {
-            alertMessage = "Password must be at least 6 characters."
-            showingAlert = true
-            return
-        }
-        guard password == confirmPassword else {
-            alertMessage = "Passwords do not match."
-            showingAlert = true
-            return
-        }
-        // TODO: AuthService.signUp(name:email:password:)
-        
-        AuthService.signUp(email: email, password: password) { result in
-            switch result {
-            case .success(let user):
-                print("Signed up:", user.uid)
-                // navigate to app…
-            case .failure(let error):
-                alertMessage = error.localizedDescription
-                showingAlert = true
+            Button {
+              handleSignUp()
+            } label: {
+              Text("Sign Up")
+                .bold()
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.white)
+                .cornerRadius(10)
+                .foregroundColor(Color("PrimaryGradientStart"))
             }
-        }
-    }
-}
+            .padding(.horizontal, 32)
+            .alert("Sign Up Error", isPresented: $showingAlert) {
+              Button("OK", role: .cancel) { }
+            } message: {
+              Text(alertMessage)
+            }
 
-struct SignUpView_Previews: PreviewProvider {
-    static var previews: some View {
-        SignUpView()
+            Spacer()
+          }
+        }
+      }
+      .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+          Button("Back", action: onBack)
+            .foregroundColor(.white)
+        }
+      }
     }
+  }
+
+  private func handleSignUp() {
+    guard !fullName.isEmpty else {
+      alertMessage = "Enter your name"; showingAlert = true; return
+    }
+    guard email.contains("@") else {
+      alertMessage = "Invalid email"; showingAlert = true; return
+    }
+    guard password.count >= 6 else {
+      alertMessage = "Password ≥ 6 chars"; showingAlert = true; return
+    }
+    guard password == confirmPassword else {
+      alertMessage = "Passwords don’t match"; showingAlert = true; return
+    }
+
+    AuthService.signUp(email: email, password: password) { res in
+      switch res {
+      case .success:
+        onSignUpComplete()
+      case .failure(let e):
+        alertMessage = e.localizedDescription
+        showingAlert = true
+      }
+    }
+  }
 }

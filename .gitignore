@@ -1,13 +1,49 @@
 # Xcode
+.DS_Store
+build/
 DerivedData/
 *.xcworkspace
-xcuserdata/
+*.xcuserstate
 
-# Firebase emülatör log
-firebase-debug.log
+# Swift Package Manager
+.swiftpm/
+Package.resolved
 
-# macOS
-.DS_Store
+# CocoaPods
+Pods/
+*.xcconfig
+
+# Carthage
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Firebase / GoogleService-Info (eğer gizli tutacaksan)
+# GoogleService-Info.plist
+
+# macOS sistem dosyaları
+*.swp
+*.lock
+*.log
+*.tmp
 
 # VSCode
 .vscode/
+
+# JetBrains
+.idea/
+
+# Homebrew / Docker vb.
+*.env
+docker-compose.override.yml
+
+# Diğer kullanıcı klasörleri (yanlışlıkla eklenmesin diye)
+.vagrant.d/
+.cargo/
+.cache/
+.config/
+.local/

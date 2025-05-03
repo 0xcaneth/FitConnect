@@ -2,84 +2,60 @@
 import SwiftUI
 
 struct FeaturesView: View {
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                // Aynı Splash’te kullandığımız gradyan
-                LinearGradient(
-                    gradient: Gradient(colors: [Color("PrimaryGradientStart"), Color("PrimaryGradientEnd")]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+  let onNext: () -> Void
 
-                VStack(spacing: 24) {
-                    Spacer()
-                    Text("Welcome to FitConnect")
-                        .font(.largeTitle).bold()
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
+  var body: some View {
+    ZStack {
+      LinearGradient(
+        colors: [Color("PrimaryGradientStart"), Color("PrimaryGradientEnd")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+      )
+      .ignoresSafeArea()
 
-                    FeatureRow(icon: "eye.fill",
-                               title: "Food Vision AI",
-                               subtitle: "Analyze meals just by snapping a photo.")
-                    FeatureRow(icon: "chart.bar.fill",
-                               title: "Nutrition Stats",
-                               subtitle: "Track macros & calories over time.")
-                    FeatureRow(icon: "video.fill",
-                               title: "Workout Clips",
-                               subtitle: "Share short videos with your trainer.")
+      VStack(spacing: 32) {
+        Spacer()
 
-                    Spacer()
+        Text("Features")
+          .font(.largeTitle).bold()
+          .foregroundColor(.white)
 
-                    // Burada NavigationLink ile TermsView’e geçiyoruz
-                    NavigationLink {
-                        TermsView()
-                    } label: {
-                        Text("Continue")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.white)
-                            .foregroundColor(Color("PrimaryGradientStart"))
-                            .cornerRadius(10)
-                            .padding(.horizontal, 32)
-                    }
-                    .padding(.bottom, 40)
-                }
-            }
-        }
-    }
-}
-
-struct FeatureRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundColor(.white)
-                .frame(width: 40, height: 40)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
-            }
-            Spacer()
+        VStack(spacing: 16) {
+          FeatureBullet(icon: "eye.fill",    title: "Snap your meal instantly")
+          FeatureBullet(icon: "chart.bar.fill", title: "Track your macros")
+          FeatureBullet(icon: "video.fill",  title: "Share workout clips")
         }
         .padding(.horizontal, 32)
+
+        Spacer()
+
+        Button(action: onNext) {
+          Text("Continue")
+            .bold()
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.white)
+            .foregroundColor(Color("PrimaryGradientStart"))
+            .cornerRadius(10)
+        }
+        .padding(.horizontal, 32)
+
+        Spacer()
+      }
     }
+  }
 }
 
-struct FeaturesView_Previews: PreviewProvider {
-    static var previews: some View {
-        FeaturesView()
+private struct FeatureBullet: View {
+  let icon: String, title: String
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: icon)
+        .font(.title2)
+        .foregroundColor(.white)
+      Text(title)
+        .foregroundColor(.white)
     }
+  }
 }

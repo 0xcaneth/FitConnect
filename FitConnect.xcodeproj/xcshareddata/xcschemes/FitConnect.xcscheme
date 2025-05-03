@@ -76,13 +76,13 @@
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "FIRESTORE_EMULATOR_HOST"
-            value = "127.0.0.1:8080"
+            key = "FIREBASE_AUTH_EMULATOR_HOST"
+            value = "127.0.0.1:9099"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "FIREBASE_AUTH_EMULATOR_HOST"
-            value = "127.0.0.1:9099"
+            key = "FIRESTORE_EMULATOR_HOST"
+            value = "127.0.0.1:8080"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
