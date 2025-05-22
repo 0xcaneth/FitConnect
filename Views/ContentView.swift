@@ -1,8 +1,19 @@
 // Views/ContentView.swift
 import SwiftUI
-import FirebaseAuth
+import FirebaseCore        // FirebaseApp.configure() için
+import FirebaseAuth        // Auth işlemleri için
+import FirebaseFirestore   // Firestore’a erişim için
+import FirebaseFirestoreSwift // Codable & @DocumentID, Timestamp için
+import FirebaseAppCheck    // App Check kullanıyorsanız
 
-/// Uygulamanın tüm akış adımlarını yöneten ana view
+// 1️⃣ Uygulama genelinde kullanılacak enum’lar
+enum Tab {
+  case home, stats, messages, profile
+}
+enum OnboardingStep {
+  case splash, features, terms, auth, verify, home
+}
+
 struct ContentView: View {
   @EnvironmentObject var session: SessionStore
   @State private var step: OnboardingStep = .splash
@@ -36,6 +47,7 @@ struct ContentView: View {
             }
           },
           onSignUpComplete: {
+            // yeni kullanıcı kaydı sonrası zorunlu e-posta doğrulama
             step = .verify
           }
         )
@@ -50,10 +62,10 @@ struct ContentView: View {
         HomeView(
           selectedTab: $selectedTab,
           userName:    session.currentUser?.displayName
-                       ?? session.currentUser?.email
-                       ?? "User",
-          onLogout: {
-            try? Auth.auth().signOut()
+                     ?? session.currentUser?.email
+                     ?? "User",
+          onLogout:    {
+            // çıkış yapıp tekrar auth akışına dön
             step = .auth
           }
         )
@@ -61,14 +73,4 @@ struct ContentView: View {
     }
     .animation(.easeInOut, value: step)
   }
-}
-
-// MARK: — Flow & Tab Enums
-
-enum OnboardingStep {
-  case splash, features, terms, auth, verify, home
-}
-
-enum Tab {
-  case home, stats, messages, profile
 }

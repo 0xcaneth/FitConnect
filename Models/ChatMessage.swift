@@ -1,28 +1,33 @@
-import Foundation
-import FirebaseFirestore
+// Models/ChatMessage.swift
 
-struct ChatMessage: Identifiable {
-  let id: String
+import Foundation
+import FirebaseFirestoreSwift
+
+struct ChatMessage: Identifiable, Codable {
+  @DocumentID var id: String?
   let text: String
   let senderId: String
   let timestamp: Date
 
-  var isFromDietitian: Bool {
-    senderId != Auth.auth().currentUser?.uid
+  init(text: String, senderId: String, timestamp: Date = Date()) {
+    self.id = nil
+    self.text = text
+    self.senderId = senderId
+    self.timestamp = timestamp
   }
 
-  init(id: String, data: [String:Any]) {
-    self.id        = id
-    self.text      = data["text"]      as? String    ?? ""
-    self.senderId  = data["senderId"]  as? String    ?? ""
-    self.timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
-  }
+  // allow decoding from a Firestore snapshot
+  init?(from doc: DocumentSnapshot) {
+    guard
+      let data = doc.data(),
+      let text = data["text"] as? String,
+      let senderId = data["senderId"] as? String,
+      let ts = (data["timestamp"] as? Timestamp)?.dateValue()
+    else { return nil }
 
-  var asDictionary: [String:Any] {
-    [
-      "text": text,
-      "senderId": senderId,
-      "timestamp": FieldValue.serverTimestamp()
-    ]
+    self.id = doc.documentID
+    self.text = text
+    self.senderId = senderId
+    self.timestamp = ts
   }
 }

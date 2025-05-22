@@ -1,6 +1,5 @@
 // Services/AuthService.swift
 import Foundation
-import FirebaseAuth
 
 struct AuthService {
 

@@ -1,8 +1,29 @@
-//
-//  ChatService.swift
-//  FitConnect
-//
-//  Created by Can Acar on 5/3/25.
-//
+// Services/ChatService.swift
 
-import Foundation
+
+class ChatService {
+  private let col = Firestore.firestore().collection("chats")
+
+  /// Send a new message
+  func send(text: String, from userId: String) {
+    let msg = ChatMessage(text: text, senderId: userId)
+    do {
+      _ = try col.addDocument(from: msg)
+    } catch {
+      print("ChatService › send error:", error)
+    }
+  }
+
+  /// Listen for updates, returns a listener you can hold onto
+  func listen(onUpdate: @escaping ([ChatMessage]) -> Void)
+    -> ListenerRegistration
+  {
+    return col
+      .order(by: "timestamp", descending: false)
+      .addSnapshotListener { snap, err in
+        guard let docs = snap?.documents else { return }
+        let msgs = docs.compactMap(ChatMessage.init(from:))
+        onUpdate(msgs)
+      }
+  }
+}

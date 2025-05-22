@@ -1,5 +1,9 @@
-// Views/AuthFlowView.swift
 import SwiftUI
+import Firebase           // Use the unified Firebase module
+import FirebaseAuth        // Auth işlemleri için
+import FirebaseFirestore   // Firestore’a erişim için
+import FirebaseFirestoreSwift // Codable & @DocumentID, Timestamp için
+import FirebaseAppCheck    // App Check kullanıyorsanız
 
 /// Login / Sign-Up akışını yöneten ara katman
 struct AuthFlowView: View {
@@ -12,7 +16,7 @@ struct AuthFlowView: View {
     NavigationStack {
       if showingLogin {
         LoginView(
-          onLoginComplete: {
+          onLoginComplete: {    
             onLoginComplete()
           },
           onSignUpTap: {

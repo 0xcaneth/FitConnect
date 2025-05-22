@@ -1,5 +1,10 @@
 // Views/EmailVerificationView.swift
 import SwiftUI
+import FirebaseCore        // FirebaseApp.configure() için
+import FirebaseAuth        // Auth işlemleri için
+import FirebaseFirestore   // Firestore’a erişim için
+import FirebaseFirestoreSwift // Codable & @DocumentID, Timestamp için
+import FirebaseAppCheck    // App Check kullanıyorsanız
 
 struct EmailVerificationView: View {
   let onVerified: () -> Void

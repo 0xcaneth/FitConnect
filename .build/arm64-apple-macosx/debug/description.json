@@ -1,0 +1,225 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.FitConnect-arm64-apple-macosx15.0-debug.module" : {
+      "executable" : "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "fileList" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/sources",
+      "importPath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/Sources/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "FitConnect",
+      "moduleOutputPath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/Modules/FitConnect.swiftmodule",
+      "objects" : [
+        "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-v",
+        "-enable-batch-mode",
+        "-index-store-path",
+        "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j8",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "FitConnect_main",
+        "-color-diagnostics",
+        "-swift-version",
+        "6",
+        "-F",
+        "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+        "-sdk",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "fitconnect"
+      ],
+      "outputFileMapPath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/Modules/FitConnect.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/can/Desktop/FitConnect/Sources/main.swift"
+      ],
+      "tempsPath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "FitConnect" : [
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc",
+      "-module-name",
+      "FitConnect",
+      "-package-name",
+      "fitconnect",
+      "-incremental",
+      "-c",
+      "/Users/can/Desktop/FitConnect/Sources/main.swift",
+      "-I",
+      "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-v",
+      "-enable-batch-mode",
+      "-index-store-path",
+      "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j8",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "FitConnect_main",
+      "-color-diagnostics",
+      "-swift-version",
+      "6",
+      "-F",
+      "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+      "-sdk",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "fitconnect",
+      "-driver-use-frontend-path",
+      "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "FitConnect" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "writeCommands" : {
+    "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect-entitlement.plist"
+    },
+    "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/Sources/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/sources"
+    },
+    "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/FitConnect.product/Objects.LinkFileList"
+    },
+    "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Library/Developer/CommandLineTools/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/can/Desktop/FitConnect/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+    }
+  }
+}
