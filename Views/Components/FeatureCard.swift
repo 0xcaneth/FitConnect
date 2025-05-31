@@ -6,21 +6,25 @@ struct FeatureCard: View {
     let subtitle: String
     
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.largeTitle)
-                .foregroundColor(.accentColor)
-            
-            Text(title)
-                .font(.headline)
-            
-            Text(subtitle)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+        UnifiedCard {
+            VStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundColor(FitConnectColors.accentColor)
+                
+                VStack(spacing: 4) {
+                    Text(title)
+                        .font(FitConnectFonts.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(FitConnectColors.textPrimary)
+                    
+                    Text(subtitle)
+                        .font(FitConnectFonts.caption)
+                        .foregroundColor(FitConnectColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(width: 140, height: 120)
         }
-        .padding()
-        .frame(width: 160)
-        .background(.regularMaterial)
-        .cornerRadius(12)
     }
 }

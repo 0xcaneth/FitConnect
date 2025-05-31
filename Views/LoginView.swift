@@ -1,47 +1,41 @@
 // Views/LoginView.swift
 import SwiftUI
-import FirebaseCore        // FirebaseApp.configure() için
 import FirebaseAuth        // Auth işlemleri için
-import FirebaseFirestore   // Firestore’a erişim için
-import FirebaseFirestoreSwift // Codable & @DocumentID, Timestamp için
-import FirebaseAppCheck    // App Check kullanıyorsanız
-
 
 struct LoginView: View {
   let onLoginComplete: () -> Void
   let onSignUpTap:     () -> Void
 
-  @State private var email            = ""
-  @State private var password         = ""
+  @State private var email             = ""
+  @State private var password          = ""
   @State private var isPasswordVisible = false
-
-  @State private var showingAlert     = false
-  @State private var alertMessage     = ""
+    
+  @State private var showingAlert      = false
+  @State private var alertMessage      = ""
+  @State private var showContent       = false
 
   var body: some View {
     ZStack {
-      LinearGradient(
-        colors: [Color("PrimaryGradientStart"), Color("PrimaryGradientEnd")],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      )
-      .ignoresSafeArea()
+      // Unified Background
+      UnifiedBackground()
 
-      VStack(spacing: 24) {
+      VStack(spacing: 32) {
         Spacer()
+
+        // Welcome Back Title
         Text("Welcome Back")
-          .font(.largeTitle).bold()
-          .foregroundColor(.white)
+          .font(FitConnectFonts.largeTitle())
+          .foregroundColor(FitConnectColors.textPrimary)
+          .scaleEffect(showContent ? 1.0 : 0.9)
+          .opacity(showContent ? 1.0 : 0.0)
 
+        // Input Fields
         VStack(spacing: 16) {
-          TextField("Email", text: $email)
-            .keyboardType(.emailAddress)
+          // Email Field
+          EnhancedTextField("Email", text: $email, keyboardType: .emailAddress)
             .autocapitalization(.none)
-            .padding()
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(8)
-            .foregroundColor(.white)
-
+          
+          // Password Field with Eye Toggle
           HStack {
             Group {
               if isPasswordVisible {
@@ -50,54 +44,77 @@ struct LoginView: View {
                 SecureField("Password", text: $password)
               }
             }
-            .padding()
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(8)
-            .foregroundColor(.white)
-
-            Button {
+            .font(FitConnectFonts.body)
+            .foregroundColor(FitConnectColors.textPrimary)
+            
+            Button(action: {
               isPasswordVisible.toggle()
-            } label: {
+            }) {
               Image(systemName: isPasswordVisible ? "eye.slash.fill" : "eye.fill")
-                .foregroundColor(.white)
+                .foregroundColor(FitConnectColors.accentColor)
+                .font(.system(size: 16))
             }
           }
+          .padding(16)
+          .background(
+            RoundedRectangle(cornerRadius: 12)
+              .fill(FitConnectColors.inputBackground)
+              .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                  .stroke(FitConnectColors.accentColor.opacity(0.3), lineWidth: 1)
+              )
+          )
         }
         .padding(.horizontal, 32)
-
+        .opacity(showContent ? 1.0 : 0.0)
+        .offset(y: showContent ? 0 : 20)
+        
+        // Forgot Password Link
         Button("Forgot Password?") {
-          // wysiwy… şimdilik boş
+          // şimdilik boş
         }
-        .foregroundColor(.white.opacity(0.8))
+        .font(FitConnectFonts.body)
+        .foregroundColor(FitConnectColors.textTertiary)
+        .opacity(showContent ? 1.0 : 0.0)
 
-        Button {
+        // Giriş butonu
+        UnifiedPrimaryButton("Log In") {
           handleLogin()
-        } label: {
-          Text("Log In")
-            .bold()
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.white)
-            .cornerRadius(10)
-            .foregroundColor(Color("PrimaryGradientStart"))
         }
         .padding(.horizontal, 32)
-        .alert("Login Error", isPresented: $showingAlert) {
-          Button("OK", role: .cancel) { }
-        } message: {
-          Text(alertMessage)
-        }
+        .opacity(showContent ? 1.0 : 0.0)
 
         Spacer()
 
+        // Kayıt ol bağlantısı
         HStack {
           Text("Don't have an account?")
-            .foregroundColor(.white.opacity(0.8))
-          Button("Sign Up", action: onSignUpTap)
-            .foregroundColor(.white).bold()
+            .font(FitConnectFonts.body)
+            .foregroundColor(FitConnectColors.textSecondary)
+          
+          Button(action: onSignUpTap) {
+            Text("Sign Up")
+              .font(FitConnectFonts.body)
+              .fontWeight(.semibold)
+              .foregroundColor(FitConnectColors.textPrimary)
+          }
         }
+        .opacity(showContent ? 1.0 : 0.0)
         .padding(.bottom, 40)
       }
+    }
+    .onAppear {
+      withAnimation(.easeOut(duration: 0.8)) {
+        showContent = true
+      }
+    }
+    // iOS 13+ Compatible Alert
+    .alert(isPresented: $showingAlert) {
+      Alert(
+        title: Text("Login Error"),
+        message: Text(alertMessage),
+        dismissButton: .default(Text("OK"))
+      )
     }
   }
 
@@ -107,11 +124,11 @@ struct LoginView: View {
       showingAlert = true
       return
     }
-    AuthService.login(email: email, password: password) { res in
-      switch res {
+    AuthService.login(email: email, password: password) { result in
+      switch result {
       case .success: onLoginComplete()
-      case .failure(let e):
-        alertMessage = e.localizedDescription
+      case .failure(let error):
+        alertMessage = error.localizedDescription
         showingAlert = true
       }
     }

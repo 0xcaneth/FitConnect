@@ -5,7 +5,7 @@ import Combine
 
 /// ObservableObject that publishes the currently signed-in user (or nil).
 final class SessionStore: ObservableObject {
-  @Published var currentUser: User?
+  @Published var currentUser: FirebaseAuth.User?
 
   private var handle: AuthStateDidChangeListenerHandle?
 

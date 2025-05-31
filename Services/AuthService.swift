@@ -1,5 +1,6 @@
 // Services/AuthService.swift
 import Foundation
+import FirebaseAuth
 
 struct AuthService {
 
@@ -7,7 +8,7 @@ struct AuthService {
   static func signUp(
     email: String,
     password: String,
-    completion: @escaping (Result<User, Error>) -> Void
+    completion: @escaping (Result<FirebaseAuth.User, Error>) -> Void
   ) {
     Auth.auth().createUser(withEmail: email, password: password) { authResult, error in
       if let error = error {
@@ -24,12 +25,10 @@ struct AuthService {
         return
       }
 
-      // **Burada** e-posta doğrulama linki gönderiyoruz:
       firebaseUser.sendEmailVerification { sendError in
         if let sendError = sendError {
           completion(.failure(sendError))
         } else {
-          // Kullanıcı oluşturuldu ve link gönderildi.
           completion(.success(firebaseUser))
         }
       }
@@ -40,7 +39,7 @@ struct AuthService {
   static func login(
     email: String,
     password: String,
-    completion: @escaping (Result<User, Error>) -> Void
+    completion: @escaping (Result<FirebaseAuth.User, Error>) -> Void
   ) {
     Auth.auth().signIn(withEmail: email, password: password) { authResult, error in
       if let error = error {

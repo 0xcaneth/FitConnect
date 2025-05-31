@@ -7,16 +7,23 @@ struct QuickActionButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack {
+            VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(FitConnectColors.accentColor)
+                
                 Text(title)
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(FitConnectColors.textPrimary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(.regularMaterial)
-            .cornerRadius(8)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(FitConnectColors.cardBackground)
+                    .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+            )
         }
+        .buttonStyle(PlainButtonStyle())
     }
 }

@@ -1,9 +1,6 @@
 import SwiftUI
 import Firebase           // Use the unified Firebase module
 import FirebaseAuth        // Auth işlemleri için
-import FirebaseFirestore   // Firestore’a erişim için
-import FirebaseFirestoreSwift // Codable & @DocumentID, Timestamp için
-import FirebaseAppCheck    // App Check kullanıyorsanız
 
 /// Login / Sign-Up akışını yöneten ara katman
 struct AuthFlowView: View {
@@ -13,28 +10,46 @@ struct AuthFlowView: View {
   @State private var showingLogin = true
 
   var body: some View {
-    NavigationStack {
-      if showingLogin {
-        LoginView(
-          onLoginComplete: {    
-            onLoginComplete()
-          },
-          onSignUpTap: {
-            showingLogin = false
-          }
-        )
-        .navigationBarHidden(true)
+    Group {
+      if #available(iOS 16.0, *) {
+        NavigationStack {
+          content
+        }
       } else {
-        SignUpView(
-          onSignUpComplete: {
-            onSignUpComplete()
-          },
-          onBack: {
-            showingLogin = true
-          }
-        )
-        .navigationBarHidden(true)
+        NavigationView {
+          content
+        }
+        .navigationViewStyle(.stack) // Use stack style for consistency
       }
     }
+  }
+
+  @ViewBuilder
+  private var content: some View {
+    ZStack {
+      // Unified Background
+      UnifiedBackground()
+      
+      if showingLogin {
+        LoginView(
+          onLoginComplete: onLoginComplete,
+          onSignUpTap: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+              showingLogin = false
+            }
+          }
+        )
+      } else {
+        SignUpView(
+          onSignUpComplete: onSignUpComplete,
+          onBack: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+              showingLogin = true
+            }
+          }
+        )
+      }
+    }
+    .navigationBarHidden(true)
   }
 }

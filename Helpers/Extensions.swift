@@ -6,3 +6,4 @@
 //
 
 import Foundation
+import SwiftUI // Ensure SwiftUI is imported if other extensions need it
