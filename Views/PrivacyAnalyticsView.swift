@@ -1,228 +1,351 @@
 import SwiftUI
+#if canImport(AppTrackingTransparency)
+import AppTrackingTransparency
+#endif
 
 struct PrivacyAnalyticsView: View {
-    @State private var showContent = false
-    @State private var showPermissionSheet = false
-    @State private var checkedItems: Set<Int> = []
-    
     let onContinue: () -> Void
     let onSkip: () -> Void
     
+    @Environment(\.presentationMode) var presentationMode
+    @State private var showContent = false
+    @State private var appUsage = true
+    @State private var workoutSuccess = true
+    @State private var anonymousBehavior = true
+    @State private var noPersonalInfo = true
+    
     var body: some View {
-        ZStack {
-            // Unified Background
-            UnifiedBackground()
-            
-            ScrollView {
-                VStack(spacing: 32) {
-                    Spacer().frame(height: 60)
-                    
-                    // Header Section
-                    VStack(spacing: 16) {
-                        Text("Privacy & Analytics")
-                            .font(FitConnectFonts.largeTitle())
-                            .foregroundColor(FitConnectColors.textPrimary)
-                            .multilineTextAlignment(.center)
-                            .scaleEffect(showContent ? 1.0 : 0.9)
-                            .opacity(showContent ? 1.0 : 0.0)
+        GeometryReader { geometry in
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.05, blue: 0.09), 
+                        Color(red: 0.10, green: 0.11, blue: 0.15)  
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        HStack {
+                            Button(action: {
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                impactFeedback.impactOccurred()
+                                presentationMode.wrappedValue.dismiss()
+                            }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.43, green: 0.31, blue: 1.0)) 
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, max(20, geometry.safeAreaInsets.top + 10))
                         
-                        Text("Help us improve FitConnect while keeping your data private.")
-                            .font(FitConnectFonts.body)
-                            .foregroundColor(FitConnectColors.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .opacity(showContent ? 1.0 : 0.0)
-                            .padding(.horizontal, 16)
-                    }
-                    .animation(.easeOut(duration: 0.8).delay(0.2), value: showContent)
-                    
-                    // Tracking List Section
-                    VStack(spacing: 16) {
-                        ForEach(trackingItems.indices, id: \.self) { index in
-                            UnifiedTrackedItemRow(
-                                item: trackingItems[index],
-                                isChecked: checkedItems.contains(index)
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [
+                                            Color(red: 0.0, green: 0.9, blue: 1.0).opacity(0.3),
+                                            Color(red: 0.43, green: 0.31, blue: 1.0).opacity(0.2),
+                                            Color.clear
+                                        ],
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 50
+                                    )
+                                )
+                                .frame(width: 100, height: 100)
+                                .scaleEffect(showContent ? 1.0 : 0.8)
+                            
+                            Image(systemName: "shield.checkerboard")
+                                .font(.system(size: 50, weight: .light))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.0, green: 0.9, blue: 1.0),
+                                            Color(red: 0.43, green: 0.31, blue: 1.0)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: Color(red: 0.0, green: 0.9, blue: 1.0), radius: 10, x: 0, y: 0)
+                        }
+                        
+                        VStack(spacing: 12) {
+                            Text("Privacy & Analytics")
+                                .font(.system(size: 28, weight: .semibold)) 
+                                .foregroundColor(.white) 
+                            
+                            Text("Help us improve FitConnect while keeping your data private and secure. Your privacy is our priority.")
+                                .font(.system(size: 16, weight: .regular)) 
+                                .foregroundColor(Color(red: 0.67, green: 0.67, blue: 0.67)) 
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+                        
+                        HStack {
+                            Text("What We Track")
+                                .font(.system(size: 20, weight: .semibold)) 
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Button(action: {}) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color(red: 0.43, green: 0.31, blue: 1.0)) 
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        VStack(spacing: 16) {
+                            PrivacyTrackingCard(
+                                icon: "chart.pie.fill", 
+                                title: "App Usage & Feature Performance",
+                                subtitle: "How you use features and app performance metrics.",
+                                isEnabled: $appUsage
                             )
-                            .opacity(showContent ? 1.0 : 0.0)
-                            .offset(y: showContent ? 0 : 20)
-                            .animation(.easeOut(duration: 0.6).delay(0.4 + Double(index) * 0.1), value: showContent)
+                            
+                            PrivacyTrackingCard(
+                                icon: "figure.mixed.cardio", 
+                                title: "Workout Success Rates & Patterns",
+                                subtitle: "Workout completion and habit tracking.",
+                                isEnabled: $workoutSuccess
+                            )
+                            
+                            PrivacyTrackingCard(
+                                icon: "person.3.sequence.fill", 
+                                title: "Anonymous User Behavior",
+                                subtitle: "Aggregated usage patterns with no personal identifiers.",
+                                isEnabled: $anonymousBehavior
+                            )
+                            
+                            PrivacyTrackingCard(
+                                icon: "lock.shield.fill", 
+                                title: "No Personal Information Collected",
+                                subtitle: "We never collect names, emails, or personal identifiers.",
+                                isEnabled: $noPersonalInfo,
+                                isReadOnly: true
+                            )
+                            
+                            IOSTrackingCard() 
                         }
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    // Permission Card
-                    UnifiedPermissionCard {
-                        showPermissionSheet = true
-                    }
-                    .opacity(showContent ? 1.0 : 0.0)
-                    .offset(y: showContent ? 0 : 30)
-                    .animation(.easeOut(duration: 0.8).delay(0.8), value: showContent)
-                    .padding(.horizontal, 24)
-                    
-                    // CTA Buttons
-                    VStack(spacing: 16) {
-                        UnifiedPrimaryButton("Allow Tracking") {
-                            onContinue()
-                        }
+                        .padding(.horizontal, 24)
                         
-                        Button("Skip for Now") {
-                            onSkip()
+                        Spacer()
+                            .frame(height: 32) 
+                        
+                        Button(action: handleAllowTracking) {
+                            Text("Allow Tracking & Continue")
+                                .font(.system(size: 18, weight: .semibold)) 
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16) 
+                                .background(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.0, green: 0.9, blue: 1.0), 
+                                            Color(red: 0.43, green: 0.31, blue: 1.0)  
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(24) 
                         }
-                        .font(FitConnectFonts.body)
-                        .foregroundColor(FitConnectColors.textTertiary)
+                        .padding(.horizontal, 40) 
+                        
+                        Spacer()
+                            .frame(height: max(32, geometry.safeAreaInsets.bottom + 16))
                     }
-                    .opacity(showContent ? 1.0 : 0.0)
-                    .animation(.easeOut(duration: 0.8).delay(1.0), value: showContent)
-                    .padding(.horizontal, 24)
-                    
-                    Spacer().frame(height: 40)
                 }
+                .opacity(showContent ? 1.0 : 0.0)
+                .animation(.easeOut(duration: 0.6), value: showContent)
             }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
                 showContent = true
             }
-            animateCheckmarks()
-        }
-        .sheet(isPresented: $showPermissionSheet) {
-            PermissionSheetView()
         }
     }
     
-    private func animateCheckmarks() {
-        for i in 0..<trackingItems.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2 + Double(i) * 0.2) {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
-                    _ = checkedItems.insert(i)
+    private func handleAllowTracking() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        #if canImport(AppTrackingTransparency)
+        if #available(iOS 14, *) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                DispatchQueue.main.async {
+                    onContinue()
                 }
             }
+        } else {
+            onContinue()
         }
+        #else
+        onContinue()
+        #endif
     }
 }
 
-// MARK: - Updated Components with Unified Design
-struct UnifiedTrackedItemRow: View {
-    let item: TrackingItem
-    let isChecked: Bool
-    
-    var body: some View {
-        UnifiedCard {
-            HStack(spacing: 16) {
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(item.color.opacity(0.2))
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: item.icon)
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(item.color)
-                }
-                
-                // Content
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title)
-                        .font(FitConnectFonts.body)
-                        .foregroundColor(FitConnectColors.textPrimary)
-                    
-                    Text(item.description)
-                        .font(FitConnectFonts.caption)
-                        .foregroundColor(FitConnectColors.textSecondary)
-                }
-                
-                Spacer()
-                
-                // Checkmark
-                ZStack {
-                    Circle()
-                        .fill(Color.green.opacity(0.2))
-                        .frame(width: 28, height: 28)
-                        .scaleEffect(isChecked ? 1.0 : 0.0)
-                    
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.green)
-                        .scaleEffect(isChecked ? 1.0 : 0.0)
-                }
-                .animation(.spring(response: 0.5, dampingFraction: 0.6), value: isChecked)
-            }
-        }
-    }
-}
-
-struct UnifiedPermissionCard: View {
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            UnifiedCard {
-                HStack(spacing: 16) {
-                    // Icon
-                    ZStack {
-                        Circle()
-                            .fill(FitConnectColors.accentColor.opacity(0.2))
-                            .frame(width: 44, height: 44)
-                        
-                        Image(systemName: "questionmark.circle.fill")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundColor(FitConnectColors.accentColor)
-                    }
-                    
-                    // Content
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Tracking Permission")
-                            .font(FitConnectFonts.body)
-                            .foregroundColor(FitConnectColors.textPrimary)
-                        
-                        Text("Tap to set your preference")
-                            .font(FitConnectFonts.caption)
-                            .foregroundColor(FitConnectColors.textSecondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Arrow
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(FitConnectColors.textSecondary)
-                }
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// Data remains the same
-struct TrackingItem {
-    let title: String
-    let description: String
+struct PrivacyTrackingCard: View {
     let icon: String
-    let color: Color
+    let title: String
+    let subtitle: String
+    @Binding var isEnabled: Bool 
+    let isReadOnly: Bool
+    
+    init(icon: String, title: String, subtitle: String, isEnabled: Binding<Bool>, isReadOnly: Bool = false) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self._isEnabled = isEnabled
+        self.isReadOnly = isReadOnly
+    }
+    
+    var body: some View {
+        HStack(spacing: 16) { 
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [Color(red: 0.43, green: 0.31, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 1.0)], 
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 44, height: 44) 
+                
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .medium)) 
+                    .foregroundColor(.white) 
+            }
+            .padding(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0)) 
+
+            VStack(alignment: .leading, spacing: 4) { 
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Color.white) 
+                    .multilineTextAlignment(.leading)
+                
+                Text(subtitle)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(Color(red: 0.67, green: 0.67, blue: 0.67)) 
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            if !isReadOnly {
+                Image(systemName: "checkmark.circle.fill") 
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(Color(red: 0.43, green: 0.31, blue: 1.0)) 
+            } else {
+                Image(systemName: "lock.fill") 
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(Color(red: 0.67, green: 0.67, blue: 0.67))
+            }
+        }
+        .padding(16) 
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(red: 0.12, green: 0.12, blue: 0.15).opacity(0.85)) 
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient( 
+                                colors: [Color(red: 0.43, green: 0.31, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 1.0)], 
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5 
+                        )
+                )
+        )
+    }
 }
 
-let trackingItems: [TrackingItem] = [
-    TrackingItem(
-        title: "App Usage & Performance",
-        description: "How you interact with features",
-        icon: "chart.line.uptrend.xyaxis",
-        color: .green
-    ),
-    TrackingItem(
-        title: "Goal Completion Patterns",
-        description: "Anonymous progress insights",
-        icon: "target",
-        color: .blue
-    ),
-    TrackingItem(
-        title: "Anonymous Usage Insights",
-        description: "Aggregated user behavior",
-        icon: "eye.fill",
-        color: .purple
-    ),
-    TrackingItem(
-        title: "No Personal Data Collected",
-        description: "Your privacy is protected",
-        icon: "shield.checkered",
-        color: .red
-    )
-]
+struct IOSTrackingCard: View {
+    var body: some View {
+        HStack(spacing: 16) { 
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [Color(red: 0.43, green: 0.31, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 1.0)], 
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 44, height: 44) 
+                
+                Image(systemName: "hand.raised.app.fill") 
+                    .font(.system(size: 20, weight: .medium)) 
+                    .foregroundColor(.white) 
+            }
+            .padding(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0))
+
+            VStack(alignment: .leading, spacing: 4) { 
+                Text("iOS Tracking Permission")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Color.white) 
+                    .multilineTextAlignment(.leading)
+                
+                Text("Tap to configure system-level tracking preferences.")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(Color(red: 0.67, green: 0.67, blue: 0.67)) 
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color(red: 0.67, green: 0.67, blue: 0.67)) 
+        }
+        .padding(16) 
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(red: 0.12, green: 0.12, blue: 0.15).opacity(0.85)) 
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient( 
+                                colors: [Color(red: 0.43, green: 0.31, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 1.0)], 
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5 
+                        )
+                )
+        )
+        .onTapGesture {
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            
+            #if canImport(AppTrackingTransparency)
+            if #available(iOS 14, *) {
+                ATTrackingManager.requestTrackingAuthorization { status in
+                    DispatchQueue.main.async {
+                        print("ATT status: \(status.rawValue)") 
+                    }
+                }
+            } else {
+            }
+            #else
+            #endif
+        }
+    }
+}
+
+#if DEBUG
+struct PrivacyAnalyticsView_Previews: PreviewProvider {
+    static var previews: some View {
+        PrivacyAnalyticsView(onContinue: {}, onSkip: {})
+            .preferredColorScheme(.dark)
+    }
+}
+#endif

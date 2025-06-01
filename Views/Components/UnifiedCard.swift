@@ -8,6 +8,8 @@ import SwiftUI
 ///     VStack { … }
 /// }
 /// ```
+/// This is now effectively an alias for GlassCard with default opacity.
+/// Consider directly using GlassCard or making UnifiedCard a specific configuration of GlassCard.
 struct UnifiedCard<Content: View>: View {
     private let content: Content
 
@@ -16,13 +18,22 @@ struct UnifiedCard<Content: View>: View {
     }
 
     var body: some View {
-        content
+        GlassCard { // Uses the GlassCard defined in FitConnectStyles
+            content
+        }
+    }
+}
+
+struct UnifiedCard_Previews: PreviewProvider {
+    static var previews: some View {
+        ZStack {
+            EnhancedGradientBackground()
+            UnifiedCard {
+                Text("This is content inside a UnifiedCard, which now uses GlassCard styling.")
+                    .foregroundColor(FitConnectColors.textPrimary)
+            }
             .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.systemBackground).opacity(0.9))
-                    .shadow(color: Color.black.opacity(0.12),
-                            radius: 8, x: 0, y: 4)
-            )
+        }
+        .preferredColorScheme(.dark)
     }
 }

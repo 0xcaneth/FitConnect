@@ -87,6 +87,8 @@
 		36A84C092DDF6B7500AC4B62 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 36A84C082DDF6B7500AC4B62 /* FirebaseStorage */; };
 		36A84C0B2DDF6B7500AC4B62 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 36A84C0A2DDF6B7500AC4B62 /* FirebaseStorageCombine-Community */; };
 		36A84C0D2DDF6B7500AC4B62 /* FirebaseVertexAI in Frameworks */ = {isa = PBXBuildFile; productRef = 36A84C0C2DDF6B7500AC4B62 /* FirebaseVertexAI */; };
+		36C143C72DEAE19400EBDF23 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 36C143C62DEAE19400EBDF23 /* Lottie */; };
+		36C143C92DEAE19400EBDF23 /* Lottie-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 36C143C82DEAE19400EBDF23 /* Lottie-Dynamic */; };
 		36D5132E2DDF9F1F00CF578D /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 36D5132D2DDF9F1F00CF578D /* FirebaseAI */; };
 		36D513302DDF9F1F00CF578D /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 36D5132F2DDF9F1F00CF578D /* FirebaseAnalytics */; };
 		36D513322DDF9F1F00CF578D /* FirebaseAnalyticsOnDeviceConversion in Frameworks */ = {isa = PBXBuildFile; productRef = 36D513312DDF9F1F00CF578D /* FirebaseAnalyticsOnDeviceConversion */; };
@@ -274,6 +276,7 @@
 				366AD9532DDF99880054CCD0 /* FirebaseMLModelDownloader in Frameworks */,
 				366AD95F2DDF99880054CCD0 /* FirebaseVertexAI in Frameworks */,
 				362A11962DDF775300D6FED1 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				36C143C92DEAE19400EBDF23 /* Lottie-Dynamic in Frameworks */,
 				362A118A2DDF775300D6FED1 /* FirebaseDatabase in Frameworks */,
 				362A11782DDF775300D6FED1 /* FirebaseAnalytics in Frameworks */,
 				366AD9592DDF99880054CCD0 /* FirebaseRemoteConfig in Frameworks */,
@@ -290,6 +293,7 @@
 				362A11922DDF775300D6FED1 /* FirebaseFunctions in Frameworks */,
 				366AD94B2DDF99880054CCD0 /* FirebaseFunctions in Frameworks */,
 				366AD9412DDF99880054CCD0 /* FirebaseCrashlytics in Frameworks */,
+				36C143C72DEAE19400EBDF23 /* Lottie in Frameworks */,
 				36A84C0B2DDF6B7500AC4B62 /* FirebaseStorageCombine-Community in Frameworks */,
 				36DD0FFB2DDF7F1600788651 /* FirebaseMessaging in Frameworks */,
 				3675294E2DEA4A74005D9C0C /* Lottie in Frameworks */,
@@ -540,7 +544,7 @@
 			packageReferences = (
 				362A11A72DDF783400D6FED1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				3607AB242DEA359F001EB633 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				36C143C52DEAE19400EBDF23 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 36686FCD2DBC1A0C003F4D65 /* Products */;
@@ -753,7 +757,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -785,7 +789,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -943,6 +947,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 11.13.0;
+			};
+		};
+		36C143C52DEAE19400EBDF23 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
 			};
 		};
 		36CC01842DD4916200118946 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
@@ -1371,6 +1383,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 36CC01842DD4916200118946 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseVertexAI;
+		};
+		36C143C62DEAE19400EBDF23 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36C143C52DEAE19400EBDF23 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		36C143C82DEAE19400EBDF23 /* Lottie-Dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36C143C52DEAE19400EBDF23 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = "Lottie-Dynamic";
 		};
 		36D5132D2DDF9F1F00CF578D /* FirebaseAI */ = {
 			isa = XCSwiftPackageProductDependency;

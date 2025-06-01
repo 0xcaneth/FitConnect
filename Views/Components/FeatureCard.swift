@@ -6,11 +6,11 @@ struct FeatureCard: View {
     let subtitle: String
     
     var body: some View {
-        UnifiedCard {
+        GlassCard { // Using GlassCard for consistent styling
             VStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(FitConnectColors.accentColor)
+                    .foregroundColor(FitConnectColors.accentCyan) // Using direct accentCyan
                 
                 VStack(spacing: 4) {
                     Text(title)
@@ -24,7 +24,20 @@ struct FeatureCard: View {
                         .multilineTextAlignment(.center)
                 }
             }
-            .frame(width: 140, height: 120)
+            .frame(width: 140, height: 120) // Adjust frame as needed
         }
+    }
+}
+
+struct FeatureCard_Previews: PreviewProvider {
+    static var previews: some View {
+        ZStack {
+            EnhancedGradientBackground()
+            HStack {
+                FeatureCard(icon: "figure.run", title: "Workouts", subtitle: "Start training")
+                FeatureCard(icon: "fork.knife", title: "Nutrition", subtitle: "Track meals")
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }

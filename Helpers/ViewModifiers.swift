@@ -1,36 +1,14 @@
 import SwiftUI
 
-// MARK: - Background Safe Area Modifier
-struct BackgroundSafeAreaModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 14.0, *) {
-            content.ignoresSafeArea()
-        } else {
-            content.edgesIgnoringSafeArea(.all)
-        }
-    }
-}
-
-// MARK: - Navigation Title Compatibility Modifier
-struct NavigationTitleCompatModifier: ViewModifier {
-    let title: String
-    
-    func body(content: Content) -> some View {
-        if #available(iOS 14.0, *) {
-            content.navigationTitle(title)
-        } else {
-            content.navigationBarTitle(Text(title), displayMode: .inline)
-        }
-    }
-}
-
-// MARK: - View Extensions
+// MARK: - View Extensions for iOS 15.6+
 extension View {
+    /// Apply background that ignores safe area
     func backgroundSafeArea() -> some View {
-        modifier(BackgroundSafeAreaModifier())
+        self.ignoresSafeArea()
     }
     
+    /// Apply navigation title (iOS 15.6+ compatible)
     func navigationTitleCompat(_ title: String) -> some View {
-        modifier(NavigationTitleCompatModifier(title: title))
+        self.navigationTitle(title)
     }
 }

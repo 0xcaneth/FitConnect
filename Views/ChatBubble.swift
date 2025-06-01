@@ -7,7 +7,6 @@
 
 import Foundation
 import SwiftUI
-import FirebaseCore        // FirebaseApp.configure() için
-import FirebaseAuth        // Auth işlemleri için
-import FirebaseFirestore   // Firestore’a erişim için
-import FirebaseAppCheck    // App Check kullanıyorsanız
+import FirebaseCore
+import FirebaseAuth
+import FirebaseFirestore
