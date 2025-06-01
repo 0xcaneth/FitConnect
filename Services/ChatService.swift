@@ -8,26 +8,32 @@ class ChatService {
     private init() {}
     
     func getOrCreateChatDocument(clientId: String, dietitianId: String, completion: @escaping (String) -> Void) {
-        let chatId = "chat_\(clientId)_\(dietitianId)"
+        let participantIds = [clientId, dietitianId].sorted()
+        let chatId = "chat_\(participantIds.joined(separator: "_"))"
         let docRef = db.collection("chats").document(chatId)
         
         docRef.getDocument { snapshot, error in
             if let snapshot = snapshot, snapshot.exists {
                 completion(chatId)
             } else {
-                // Create new chat document
-                let data: [String: Any] = [
-                    "clientId": clientId,
-                    "dietitianId": dietitianId,
-                    "lastMessage": "",
-                    "lastUpdated": Timestamp(date: Date())
-                ]
+                // Create new chat document using new Chat model
+                let newChat = Chat(
+                    participants: [clientId, dietitianId],
+                    lastMessage: "",
+                    updatedAt: Timestamp(date: Date()),
+                    createdAt: Timestamp(date: Date())
+                )
                 
-                docRef.setData(data) { error in
-                    if let error = error {
-                        print("Error creating chat document: \(error)")
+                do {
+                    try docRef.setData(from: newChat) { error in
+                        if let error = error {
+                            print("Error creating chat document: \(error)")
+                        }
+                        completion(chatId)
                     }
-                    completion(chatId)
+                } catch {
+                    print("Error encoding chat: \(error)")
+                    completion(chatId) // Still return chatId even if creation failed
                 }
             }
         }
@@ -50,8 +56,12 @@ class ChatService {
                 }
                 
                 let messages = documents.compactMap { doc -> ChatMessage? in
-                    let data = doc.data()
-                    return ChatMessage(dict: data, id: doc.documentID)
+                    do {
+                        return try doc.data(as: ChatMessage.self)
+                    } catch {
+                        print("Error decoding message \(doc.documentID): \(error)")
+                        return nil
+                    }
                 }
                 
                 onUpdate(messages)
@@ -61,35 +71,38 @@ class ChatService {
     func sendMessage(
         chatId: String,
         senderId: String,
+        senderName: String,
         text: String,
-        clientId: String,
-        dietitianId: String,
         completion: @escaping (Error?) -> Void
     ) {
-        let messageData: [String: Any] = [
-            "senderId": senderId,
-            "text": text,
-            "timestamp": Timestamp(date: Date()),
-            "type": "text"
-        ]
+        let newMessage = ChatMessage(
+            senderId: senderId,
+            senderName: senderName,
+            text: text,
+            timestamp: Timestamp(date: Date())
+        )
         
         let messagesRef = db.collection("chats").document(chatId).collection("messages")
         
-        messagesRef.addDocument(data: messageData) { error in
-            if let error = error {
-                completion(error)
-                return
+        do {
+            try messagesRef.addDocument(from: newMessage) { error in
+                if let error = error {
+                    completion(error)
+                    return
+                }
+                
+                // Update chat document with last message info
+                let chatUpdateData: [String: Any] = [
+                    "lastMessage": text,
+                    "updatedAt": Timestamp(date: Date())
+                ]
+                
+                self.db.collection("chats").document(chatId).updateData(chatUpdateData) { updateError in
+                    completion(updateError)
+                }
             }
-            
-            // Update chat document with last message info
-            let chatUpdateData: [String: Any] = [
-                "lastMessage": text,
-                "lastUpdated": Timestamp(date: Date())
-            ]
-            
-            self.db.collection("chats").document(chatId).updateData(chatUpdateData) { updateError in
-                completion(updateError)
-            }
+        } catch {
+            completion(error)
         }
     }
 }

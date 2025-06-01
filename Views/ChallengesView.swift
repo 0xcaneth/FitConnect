@@ -4,35 +4,61 @@ import FirebaseAuth
 
 struct ChallengeCardView: View {
     let challenge: Challenge
-    @EnvironmentObject var session: SessionStore
-
     @State private var joinedChallenge: UserChallenge? = nil
     @State private var isJoined: Bool = false
+    @State private var listenerRegistration: ListenerRegistration?
 
-    private func checkIfUserJoined() {
-        // challenge.id Optional olduğu için guard let ile devam et.
-        guard !session.currentUserId.isEmpty, let challengeId = challenge.id else { return }
-        let userId = session.currentUserId // Artık güvenle kullanabiliriz
+    private func setupChallengeListener() {
+        removeChallengeListener()
+
+        guard !session.currentUserId.isEmpty, let challengeId = challenge.id else {
+            print("[ChallengeCardView] User not logged in or challenge ID missing for listener.")
+            self.isJoined = false
+            self.joinedChallenge = nil
+            return
+        }
+        let userId = session.currentUserId
         
         let db = Firestore.firestore()
-        db.collection("userChallenges").document(userId).collection("challenges").document(challengeId).getDocument { documentSnapshot, error in
+        let challengeDocRef = db.collection("userChallenges").document(userId).collection("challenges").document(challengeId)
+
+        self.listenerRegistration = challengeDocRef.addSnapshotListener { documentSnapshot, error in
+            if let error = error {
+                print("[ChallengeCardView] Error listening to user challenge document \(challengeId): \(error.localizedDescription)")
+                return
+            }
+
             if let document = documentSnapshot, document.exists {
-                self.joinedChallenge = try? document.data(as: UserChallenge.self)
-                self.isJoined = true
+                print("[ChallengeCardView] Raw Firestore data update for user challenge \(challengeId): \(String(describing: document.data()))")
+                do {
+                    self.joinedChallenge = try document.data(as: UserChallenge.self)
+                    self.isJoined = true
+                    print("[ChallengeCardView] Successfully decoded UserChallenge update: \(String(describing: self.joinedChallenge))")
+                } catch let decodeError {
+                    print("[ChallengeCardView] Error decoding UserChallenge update for \(challengeId): \(decodeError)")
+                    self.isJoined = true
+                    self.joinedChallenge = nil
+                }
             } else {
+                print("[ChallengeCardView] User challenge document \(challengeId) no longer exists or user hasn't joined.")
                 self.isJoined = false
                 self.joinedChallenge = nil
             }
         }
     }
-    
+
+    private func removeChallengeListener() {
+        self.listenerRegistration?.remove()
+        self.listenerRegistration = nil
+        print("[ChallengeCardView] Listener removed.")
+    }
+
     private func joinChallenge() {
-        // challenge.id Optional olduğu için guard let ile devam et.
         guard !session.currentUserId.isEmpty, let challengeId = challenge.id else {
             print("Error: User not logged in or challenge ID missing.")
             return
         }
-        let userId = session.currentUserId // Artık güvenle kullanabiliriz
+        let userId = session.currentUserId
 
         let db = Firestore.firestore()
         let userChallengeRef = db.collection("userChallenges").document(userId).collection("challenges").document(challengeId)
@@ -46,6 +72,7 @@ struct ChallengeCardView: View {
             joinedDate: Timestamp(date: Date()),
             lastUpdated: Timestamp(date: Date()),
             challengeTitle: challenge.title,
+            challengeDescription: challenge.description,
             challengeTargetValue: challenge.targetValue,
             challengeUnit: challenge.unit.rawValue
         )
@@ -57,13 +84,15 @@ struct ChallengeCardView: View {
                 } else {
                     print("Successfully joined challenge: \(challenge.title)")
                     self.isJoined = true
-                    self.checkIfUserJoined()
+                    self.setupChallengeListener()
                 }
             }
         } catch let error {
             print("Error encoding UserChallenge or setting data: \(error.localizedDescription)")
         }
     }
+
+    @EnvironmentObject var session: SessionStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -86,13 +115,18 @@ struct ChallengeCardView: View {
                     .foregroundColor(Color(hex: "#8A8F9B"))
             }
 
-            if isJoined, let currentProgress = joinedChallenge?.progressValue {
-                 ProgressView(value: currentProgress, total: challenge.targetValue)
+            if isJoined, let currentProgress = joinedChallenge?.progressValue, let target = joinedChallenge?.challengeTargetValue, target > 0 {
+                 let clampedProgress = min(currentProgress, target)
+                 ProgressView(value: clampedProgress, total: target)
                      .progressViewStyle(LinearProgressViewStyle(tint: Color(hex: "#6E56E9")))
                      .padding(.vertical, 4)
-                Text("Progress: \(Int(currentProgress)) / \(Int(challenge.targetValue)) \(challenge.unit.displayName)")
+                Text("Progress: \(Int(currentProgress)) / \(Int(target)) \(joinedChallenge?.challengeUnit ?? challenge.unit.displayName)")
                      .font(.system(size: 10, design: .rounded))
                      .foregroundColor(Color(hex: "#8A8F9B"))
+            } else if isJoined {
+                Text("Progress information unavailable or target is zero.")
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundColor(Color.orange)
             }
 
             Button(action: {
@@ -122,7 +156,10 @@ struct ChallengeCardView: View {
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
         )
         .onAppear {
-            checkIfUserJoined()
+            setupChallengeListener()
+        }
+        .onDisappear {
+            removeChallengeListener()
         }
     }
 }

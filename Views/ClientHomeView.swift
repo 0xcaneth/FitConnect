@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseAuth
 import HealthKit
+import FirebaseFirestore
 
 // extension Font {
 //     static func sfProRounded(size: CGFloat, weight: Font.Weight = .regular) -> Font {
@@ -18,6 +19,7 @@ struct ClientHomeView: View {
     @State private var showingChat = false
     @State private var showingProfile = false
     @State private var unreadNotificationCount = 1 // Example
+    @State private var currentChatId: String?
 
     // CORRECTED init block
     init() {
@@ -31,8 +33,6 @@ struct ClientHomeView: View {
     }
 
     var body: some View {
-        // THE BODY REMAINS UNCHANGED FROM THE LAST KNOWN GOOD STATE
-        // BEFORE THE INIT() BLOCK WAS INTRODUCED
         NavigationView {
             GeometryReader { geometry in
                 ZStack {
@@ -119,15 +119,17 @@ struct ClientHomeView: View {
                 }
             }
             .sheet(isPresented: $showingChat) {
-                if !session.assignedDietitianId.isEmpty {
-                    let chatVM = ChatViewModel(clientId: session.currentUserId, dietitianId: session.assignedDietitianId, currentUserId: session.currentUserId)
-                    ChatView(viewModel: chatVM)
+                if let chatId = currentChatId {
+                    NavigationView {
+                        ChatView(chatId: chatId)
+                            .environmentObject(session)
+                    }
                 } else {
                     NoDietitianAssignedView()
                 }
             }
         }
-    } // END OF BODY
+    }
 
     @ViewBuilder
     private func greetingSection() -> some View {
@@ -331,7 +333,7 @@ struct ClientHomeView: View {
                     title: "Chat with Dietitian",
                     subtitle: "Get help & tips"
                 ) {
-                    showingChat = true
+                    findOrCreateChatWithDietitian()
                 }
             }
             .padding(.horizontal, 20)
@@ -433,6 +435,59 @@ struct ClientHomeView: View {
         .transition(.move(edge: .top).combined(with: .opacity))
         .animation(.default, value: healthKitManager.isAuthorized)
     }
+    
+    private func findOrCreateChatWithDietitian() {
+        guard !session.currentUserId.isEmpty else {
+            print("[ClientHomeView] User not logged in, cannot create chat.")
+            return
+        }
+        
+        let clientId = session.currentUserId
+        let dietitianId = session.assignedDietitianId.isEmpty ? "defaultDietitianId" : session.assignedDietitianId
+        
+        let participantIds = [clientId, dietitianId].sorted() 
+        let chatId = "chat_\(participantIds.joined(separator: "_"))"
+        
+        let db = Firestore.firestore()
+        let chatRef = db.collection("chats").document(chatId)
+        
+        chatRef.getDocument { document, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("[ClientHomeView] Error checking for existing chat: \(error.localizedDescription)")
+                    return
+                }
+                
+                if let document = document, document.exists {
+                    print("[ClientHomeView] Using existing chat: \(chatId)")
+                    self.currentChatId = chatId
+                    self.showingChat = true
+                } else {
+                    let newChat = Chat(
+                        participants: [clientId, dietitianId],
+                        lastMessage: "",
+                        updatedAt: Timestamp(date: Date()),
+                        createdAt: Timestamp(date: Date())
+                    )
+                    
+                    do {
+                        try chatRef.setData(from: newChat) { error in
+                            if let error = error {
+                                print("[ClientHomeView] Error creating new chat: \(error.localizedDescription)")
+                            } else {
+                                print("[ClientHomeView] Successfully created new chat: \(chatId)")
+                                self.currentChatId = chatId
+                                self.showingChat = true
+                            }
+                        }
+                    } catch {
+                        print("[ClientHomeView] Error encoding new chat: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 struct MetricTile: View {
@@ -656,14 +711,13 @@ struct NoDietitianAssignedView: View {
 struct ClientHomeView_Previews: PreviewProvider {
     static var previews: some View {
         let mockHealthKitManager = HealthKitManager()
-        // Simulate some data for preview
         mockHealthKitManager.activeEnergyBurned = 1250
         mockHealthKitManager.stepCount = 7500
         mockHealthKitManager.waterIntake = 1.5
-        mockHealthKitManager.isAuthorized = true // or false to test banner
+        mockHealthKitManager.isAuthorized = true 
         mockHealthKitManager.permissionStatusDetermined = true
 
-        return NavigationView { // Add NavigationView for toolbar testing
+        return NavigationView { 
             ClientHomeView()
                 .environmentObject(SessionStore())
                 .environmentObject(mockHealthKitManager)

@@ -13,6 +13,7 @@ struct FitConnectUser: Identifiable, Codable {
     var fitnessGoal: String?
     var activityLevel: String?
     var subscription: SubscriptionStatus?
+    var xp: Int? // Default to nil or 0, depending on preference. Let's start with nil.
     
     enum SubscriptionStatus: String, Codable {
         case free = "free"
@@ -20,10 +21,11 @@ struct FitConnectUser: Identifiable, Codable {
         case pro = "pro"
     }
     
-    init(email: String, fullName: String) {
+    init(email: String, fullName: String, xp: Int? = nil) { 
         self.email = email
         self.fullName = fullName
         self.createdAt = Date()
         self.subscription = .free
+        self.xp = xp
     }
 }

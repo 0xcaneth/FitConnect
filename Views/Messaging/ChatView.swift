@@ -1,143 +1,185 @@
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 struct ChatView: View {
+    let chatId: String
+    @EnvironmentObject var session: SessionStore
     @Environment(\.presentationMode) var presentationMode
-    @StateObject var viewModel: ChatViewModel
-    @State private var currentText: String = ""
-    @State private var showContent = false
+    
+    @State private var messages: [ChatMessage] = []
+    @State private var newMessageText: String = ""
+    @State private var isLoading: Bool = true
+    @State private var listenerRegistration: ListenerRegistration?
     
     var body: some View {
         VStack(spacing: 0) {
-            // Navigation Bar
-            navigationBar()
-            
             // Messages List
-            messagesView()
-            
-            // Message Input
-            messageInputView()
-        }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.04, blue: 0.10), // #0A0A1A
-                    Color(red: 0.10, green: 0.10, blue: 0.12)  // #1A1A1F
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.6)) {
-                showContent = true
-            }
-        }
-        .onDisappear {
-            viewModel.detachListener()
-        }
-    }
-    
-    @ViewBuilder
-    private func navigationBar() -> some View {
-        HStack {
-            Button(action: {
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(Color(red: 0.42, green: 0.31, blue: 0.85)) // #6E4EFF
-            }
-            
-            Spacer()
-            
-            Text("Chat with Dietitian")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundColor(.white)
-            
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(red: 0.08, green: 0.08, blue: 0.10)) // #14141A
-        .opacity(showContent ? 1.0 : 0.0)
-        .animation(.easeOut(duration: 0.3), value: showContent)
-    }
-    
-    @ViewBuilder
-    private func messagesView() -> some View {
-        if viewModel.isLoading {
-            VStack {
-                Spacer()
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Color(red: 0.0, green: 0.9, blue: 1.0)))
-                    .scaleEffect(1.2)
-                Spacer()
-            }
-        } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(viewModel.messages) { message in
-                            MessageBubbleView(
-                                message: message,
-                                isCurrentUser: message.senderId == viewModel.currentUserId
-                            )
-                            .id(message.id)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                }
-                .onChange(of: viewModel.messages.count) { _ in
-                    if let lastMessage = viewModel.messages.last {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else if messages.isEmpty {
+                            Text("No messages yet. Start the conversation!")
+                                .font(.system(size: 16, design: .rounded))
+                                .foregroundColor(Color(hex: "#B0B3BA"))
+                                .padding(.top, 50)
+                        } else {
+                            ForEach(messages) { message in
+                                MessageBubbleView(
+                                    message: message,
+                                    isCurrentUser: message.senderId == session.currentUserId
+                                )
+                                .id(message.id)
                             }
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .onChange(of: messages.count) { _ in
+                    // Auto scroll to bottom when new message arrives
+                    if let lastMessage = messages.last {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
                 }
             }
+            
+            // Message Input Bar
+            HStack(spacing: 12) {
+                TextField("Type a message…", text: $newMessageText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .font(.system(size: 16, design: .rounded))
+                
+                Button(action: sendMessage) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color(hex: "#4A00E0"), Color(hex: "#00D4FF")]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(Circle())
+                }
+                .disabled(newMessageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(newMessageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.6 : 1.0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color(hex: "#1E1F25"))
+        }
+        .background(Color(hex: "#0D0F14"))
+        .navigationTitle("Chat with Dietitian")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            setupMessageListener()
+        }
+        .onDisappear {
+            removeMessageListener()
         }
     }
     
-    @ViewBuilder
-    private func messageInputView() -> some View {
-        HStack(spacing: 12) {
-            TextField("Type your message...", text: $currentText)
-                .font(.system(size: 16))
-                .padding(12)
-                .background(Color(red: 0.20, green: 0.20, blue: 0.23)) // #333339
-                .foregroundColor(.black)
-                .cornerRadius(20)
-            
-            Button(action: sendMessage) {
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(
-                        currentText.trimmingCharacters(in: .whitespaces).isEmpty
-                        ? Color.gray
-                        : Color(red: 0.0, green: 0.9, blue: 1.0) // #00E5FF
-                    )
-            }
-            .disabled(currentText.trimmingCharacters(in: .whitespaces).isEmpty)
+    private func setupMessageListener() {
+        guard !session.currentUserId.isEmpty else {
+            print("[ChatView] User not logged in, cannot setup message listener.")
+            isLoading = false
+            return
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(red: 0.10, green: 0.10, blue: 0.12)) // #1A1A1F
+        
+        removeMessageListener()
+        
+        let db = Firestore.firestore()
+        let messagesRef = db.collection("chats").document(chatId).collection("messages")
+        
+        listenerRegistration = messagesRef
+            .order(by: "timestamp", descending: false)
+            .addSnapshotListener { querySnapshot, error in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        print("[ChatView] Error listening to messages: \(error.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let documents = querySnapshot?.documents else {
+                        print("[ChatView] No messages found")
+                        self.messages = []
+                        return
+                    }
+                    
+                    self.messages = documents.compactMap { document in
+                        do {
+                            return try document.data(as: ChatMessage.self)
+                        } catch {
+                            print("[ChatView] Error decoding message \(document.documentID): \(error)")
+                            return nil
+                        }
+                    }
+                    
+                    print("[ChatView] Loaded \(self.messages.count) messages")
+                }
+            }
+    }
+    
+    private func removeMessageListener() {
+        listenerRegistration?.remove()
+        listenerRegistration = nil
     }
     
     private func sendMessage() {
-        let messageText = currentText.trimmingCharacters(in: .whitespaces)
-        guard !messageText.isEmpty else { return }
+        let messagetext = newMessageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !messagetext.isEmpty, !session.currentUserId.isEmpty else { return }
         
-        viewModel.sendMessage(text: messageText)
-        currentText = ""
+        let currentUser = session.currentUser
+        let senderName = currentUser?.displayName ?? currentUser?.email ?? "Unknown User"
         
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        let newMessage = ChatMessage(
+            senderId: session.currentUserId,
+            senderName: senderName,
+            text: messagetext,
+            timestamp: Timestamp(date: Date())
+        )
+        
+        let db = Firestore.firestore()
+        let messagesRef = db.collection("chats").document(chatId).collection("messages")
+        let chatRef = db.collection("chats").document(chatId)
+        
+        // Add message to subcollection
+        do {
+            try messagesRef.addDocument(from: newMessage) { error in
+                if let error = error {
+                    print("[ChatView] Error sending message: \(error.localizedDescription)")
+                    // TODO: Show error to user
+                } else {
+                    print("[ChatView] Message sent successfully")
+                    
+                    // Update chat metadata
+                    chatRef.updateData([
+                        "lastMessage": messagetext,
+                        "updatedAt": Timestamp(date: Date())
+                    ]) { error in
+                        if let error = error {
+                            print("[ChatView] Error updating chat metadata: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("[ChatView] Error encoding message: \(error.localizedDescription)")
+        }
+        
+        // Clear input field
+        newMessageText = ""
     }
 }
 
@@ -149,51 +191,60 @@ struct MessageBubbleView: View {
         HStack {
             if isCurrentUser {
                 Spacer()
+            }
+            
+            VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 4) {
+                if !isCurrentUser {
+                    Text(message.senderName)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(Color(hex: "#B0B3BA"))
+                }
                 
                 Text(message.text)
-                    .font(.system(size: 16))
-                    .padding(12)
-                    .background(Color(red: 0.0, green: 0.9, blue: 1.0)) // #00E5FF
+                    .font(.system(size: 16, design: .rounded))
                     .foregroundColor(.white)
-                    .cornerRadius(16)
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
-            } else {
-                HStack(alignment: .bottom, spacing: 8) {
-                    // Dietitian avatar
-                    Circle()
-                        .fill(Color(red: 0.42, green: 0.31, blue: 0.85)) // #6E4EFF
-                        .frame(width: 32, height: 32)
-                        .overlay(
-                            Text("D")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: isCurrentUser ? 
+                                [Color(hex: "#102849"), Color(hex: "#0A1635")] :
+                                [Color(hex: "#0E1E3D"), Color(hex: "#13274C")]
+                            ),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                    
-                    Text(message.text)
-                        .font(.system(size: 16))
-                        .padding(12)
-                        .background(Color(red: 0.20, green: 0.20, blue: 0.23)) // #333339
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .leading)
-                    
-                    Spacer()
-                }
+                    )
+                    .cornerRadius(18)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                
+                Text(formatTimestamp(message.timestamp))
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(Color(hex: "#8A8F9B"))
+            }
+            .frame(maxWidth: 280, alignment: isCurrentUser ? .trailing : .leading)
+            
+            if !isCurrentUser {
+                Spacer()
             }
         }
+    }
+    
+    private func formatTimestamp(_ timestamp: Timestamp) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp.dateValue())
     }
 }
 
 #if DEBUG
 struct ChatView_Previews: PreviewProvider {
     static var previews: some View {
-        let viewModel = ChatViewModel(
-            clientId: "client1",
-            dietitianId: "dietitian1",
-            currentUserId: "client1"
-        )
-        ChatView(viewModel: viewModel)
-            .preferredColorScheme(.dark)
+        NavigationView {
+            ChatView(chatId: "preview-chat-id")
+                .environmentObject(SessionStore.previewStore())
+        }
+        .preferredColorScheme(.dark)
     }
 }
 #endif

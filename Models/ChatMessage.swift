@@ -1,29 +1,17 @@
 import Foundation
 import FirebaseFirestore
 
-struct ChatMessage: Identifiable, Equatable {
-    let id: String
-    let senderId: String
-    let text: String
-    let timestamp: Date
-    let type: String
+struct ChatMessage: Identifiable, Codable {
+    @DocumentID var id: String?
+    var senderId: String
+    var senderName: String
+    var text: String
+    var timestamp: Timestamp
     
-    init?(dict: [String: Any], id: String) {
-        guard let senderId = dict["senderId"] as? String,
-              let text = dict["text"] as? String,
-              let timestamp = dict["timestamp"] as? Timestamp,
-              let type = dict["type"] as? String else {
-            return nil
-        }
-        
-        self.id = id
+    init(senderId: String, senderName: String, text: String, timestamp: Timestamp = Timestamp(date: Date())) {
         self.senderId = senderId
+        self.senderName = senderName
         self.text = text
-        self.timestamp = timestamp.dateValue()
-        self.type = type
-    }
-    
-    static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {
-        return lhs.id == rhs.id
+        self.timestamp = timestamp
     }
 }
