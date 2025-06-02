@@ -173,29 +173,44 @@ struct ChallengesView: View {
     private func fetchChallengesFromFirestore() {
         isLoading = true
         let db = Firestore.firestore()
+        
         db.collection("challenges")
-          .order(by: "createdAt", descending: true)
-          .getDocuments { snapshot, error in
-            isLoading = false
-            if let error = error {
-                print("Error fetching challenges: \(error.localizedDescription)")
-                return
-            }
-            guard let documents = snapshot?.documents else {
-                print("No challenge documents found")
-                self.activeChallenges = []
-                return
-            }
-            
-            self.activeChallenges = documents.compactMap { document -> Challenge? in
-                do {
-                    return try document.data(as: Challenge.self)
-                } catch {
-                    print("Error decoding challenge: \(error)")
-                    return nil
+            .whereField("isActive", isEqualTo: true)
+            .order(by: "title")
+            .getDocuments { snapshot, error in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        print("[ChallengesView] Error fetching challenges: \(error.localizedDescription)")
+                        // Keep existing challenges if Firebase fails (graceful degradation)
+                        if self.activeChallenges.isEmpty {
+                            // Show user-friendly message in UI if needed
+                            print("[ChallengesView] No cached challenges available")
+                        }
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else {
+                        print("[ChallengesView] No challenges found in Firestore")
+                        self.activeChallenges = []
+                        return
+                    }
+                    
+                    self.activeChallenges = documents.compactMap { document in
+                        do {
+                            var challenge = try document.data(as: Challenge.self)
+                            challenge.id = document.documentID
+                            return challenge
+                        } catch {
+                            print("[ChallengesView] Error decoding challenge \(document.documentID): \(error)")
+                            return nil
+                        }
+                    }
+                    
+                    print("[ChallengesView] Successfully loaded \(self.activeChallenges.count) challenges from Firebase")
                 }
             }
-        }
     }
 
     var body: some View {

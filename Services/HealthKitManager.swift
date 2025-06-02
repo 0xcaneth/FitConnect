@@ -377,8 +377,8 @@ class HealthKitManager: ObservableObject {
                             print("[BadgeAward][Error] Failed to award badge \(badgeId): \(err.localizedDescription)")
                         } else {
                             print("[BadgeAward] Successfully awarded badge '\(newBadge.badgeName)' (\(badgeId)) to user \(userId).")
-                            // TODO: Create a feed post for this badge award (Requirement 5.b)
-                            // self.createBadgeFeedPost(userId: userId, badgeName: newBadge.badgeName, badgeIcon: newBadge.iconName)
+                            
+                            self.createBadgeFeedPost(userId: userId, badgeName: newBadge.badgeName, badgeIcon: newBadge.iconName)
                             
                             // Award XP for earning a badge
                             self.awardXP(forUserId: userId, xpAmount: xpReward)
@@ -387,6 +387,39 @@ class HealthKitManager: ObservableObject {
                 } catch {
                     print("[BadgeAward][Error] Could not encode badge \(badgeId) for Firestore: \(error.localizedDescription)")
                 }
+            }
+        }
+    }
+    
+    private func createBadgeFeedPost(userId: String, badgeName: String, badgeIcon: String?) {
+        let db = Firestore.firestore()
+        
+        // Get user's display name
+        db.collection("users").document(userId).getDocument { snapshot, error in
+            let userName = snapshot?.data()?["fullName"] as? String ?? "Unknown User"
+            
+            let feedPost = FeedPost(
+                authorId: userId,
+                authorName: userName,
+                authorPhotoURL: nil,
+                type: .badge,
+                content: badgeName,
+                imageURL: nil,
+                timestamp: Timestamp(date: Date()),
+                likesCount: 0,
+                likedBy: []
+            )
+            
+            do {
+                try db.collection("feed").addDocument(from: feedPost) { error in
+                    if let error = error {
+                        print("[BadgeFeedPost][Error] Failed to create feed post for badge: \(error.localizedDescription)")
+                    } else {
+                        print("[BadgeFeedPost] Successfully created feed post for badge '\(badgeName)'")
+                    }
+                }
+            } catch {
+                print("[BadgeFeedPost][Error] Failed to encode feed post: \(error.localizedDescription)")
             }
         }
     }

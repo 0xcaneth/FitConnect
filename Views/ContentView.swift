@@ -64,11 +64,9 @@ struct ContentView: View {
                 .navigationViewStyle(StackNavigationViewStyle())
                 .transition(.opacity)
             } else {
-                NavigationView {
-                    ClientHomeView()
-                }
-                .navigationViewStyle(StackNavigationViewStyle())
-                .transition(.opacity)
+                HomeView()
+                    .environmentObject(session)
+                    .transition(.opacity)
             }
         }
     }

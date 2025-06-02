@@ -45,13 +45,19 @@ struct DietitianDashboardView: View {
             }
         }
         .sheet(isPresented: $showingChat) {
-            if let client = selectedClient {
-                let chatVM = ChatViewModel(
-                    clientId: client.uid,
-                    dietitianId: session.currentUserId,
-                    currentUserId: session.currentUserId
-                )
-                ChatView(viewModel: chatVM)
+            if #available(iOS 16.0, *) {
+                if let client = selectedClient {
+                    ChatSheetView(
+                        clientId: client.uid,
+                        dietitianId: session.currentUserId,
+                        clientName: client.fullName
+                    )
+                    .environmentObject(session)
+                }
+            } else {
+                // Fallback on earlier versions
+                // You could show an alert or a different view here
+                Text("Chat feature requires iOS 16 or later.")
             }
         }
     }
@@ -300,6 +306,99 @@ struct ClientRow: View {
                 .fill(Color(red: 0.12, green: 0.12, blue: 0.15).opacity(0.9)) // #1E1E26 @90%
                 .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
         )
+    }
+}
+
+@available(iOS 16.0, *)
+struct ChatSheetView: View {
+    let clientId: String
+    let dietitianId: String  
+    let clientName: String
+    @EnvironmentObject var session: SessionStore
+    @State private var chatId: String?
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if isLoading {
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                    Text("Setting up chat...")
+                        .foregroundColor(.white)
+                        .padding(.top)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(red: 0.07, green: 0.08, blue: 0.10)) // #0D0F14
+            } else if let chatId = chatId {
+                NavigationView {
+                    ChatView(chatId: chatId)
+                        .navigationTitle("Chat with \(clientName)")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .environmentObject(session)
+                }
+            } else {
+                VStack {
+                    Text("Error creating chat")
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(red: 0.07, green: 0.08, blue: 0.10)) // #0D0F14
+            }
+        }
+        .onAppear {
+            createOrFindChat()
+        }
+    }
+    
+    private func createOrFindChat() {
+        let participantIds = [clientId, dietitianId].sorted()
+        let generatedChatId = "chat_\(participantIds.joined(separator: "_"))"
+        
+        let db = Firestore.firestore()
+        let chatRef = db.collection("chats").document(generatedChatId)
+        
+        chatRef.getDocument { document, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("[ChatSheetView] Error checking for existing chat: \(error.localizedDescription)")
+                    self.isLoading = false
+                    return
+                }
+                
+                if let document = document, document.exists {
+                    // Chat exists
+                    print("[ChatSheetView] Using existing chat: \(generatedChatId)")
+                    self.chatId = generatedChatId
+                    self.isLoading = false
+                } else {
+                    // Create new chat
+                    let newChat = Chat(
+                        participants: [clientId, dietitianId],
+                        lastMessage: "",
+                        updatedAt: Timestamp(date: Date()),
+                        createdAt: Timestamp(date: Date())
+                    )
+                    
+                    do {
+                        try chatRef.setData(from: newChat) { error in
+                            if let error = error {
+                                print("[ChatSheetView] Error creating new chat: \(error.localizedDescription)")
+                                self.isLoading = false
+                            } else {
+                                print("[ChatSheetView] Successfully created new chat: \(generatedChatId)")
+                                self.chatId = generatedChatId
+                                self.isLoading = false
+                            }
+                        }
+                    } catch {
+                        print("[ChatSheetView] Error encoding new chat: \(error.localizedDescription)")
+                        self.isLoading = false
+                    }
+                }
+            }
+        }
     }
 }
 

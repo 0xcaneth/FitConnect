@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseAuth
 import Combine
 
 class ChatViewModel: ObservableObject {
@@ -46,17 +47,26 @@ class ChatViewModel: ObservableObject {
         let trimmedText = text.trimmingCharacters(in: .whitespaces)
         guard !trimmedText.isEmpty, !chatId.isEmpty else { return }
         
+        let senderName = getCurrentUserName()
+        
         ChatService.shared.sendMessage(
             chatId: chatId,
             senderId: currentUserId,
-            text: trimmedText,
-            clientId: clientId,
-            dietitianId: dietitianId
+            senderName: senderName,
+            text: trimmedText
         ) { error in
             if let error = error {
                 print("Error sending message: \(error)")
             }
         }
+    }
+    
+    private func getCurrentUserName() -> String {
+        // Try to get name from Firebase Auth current user
+        if let currentUser = Auth.auth().currentUser {
+            return currentUser.displayName ?? currentUser.email ?? "Unknown User"
+        }
+        return "Unknown User"
     }
     
     func detachListener() {
