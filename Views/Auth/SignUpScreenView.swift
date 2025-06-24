@@ -306,33 +306,62 @@ struct SignUpScreenView: View {
     }
     
     private func signUp() {
+        guard isFormValid else {
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         showError = false
         
         Task {
             do {
+                print("[SignUpView] Starting signup process for role: \(selectedRole)")
+                
+                // CRITICAL: Await the complete signup process (including Firestore write)
                 try await AuthService.shared.signUp(
                     email: email,
                     password: password,
                     fullName: fullName,
                     role: selectedRole
                 )
+                
+                print("[SignUpView] Signup completed successfully")
+                
                 await MainActor.run {
                     isLoading = false
                     successMessage = "Account created! Please check your email to verify your account before signing in."
                     showSuccess = true
                     
-                    // Auto-dismiss success message after 5 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    // Clear form
+                    fullName = ""
+                    email = ""
+                    password = ""
+                    confirmPassword = ""
+                    agreedToTerms = false
+                    
+                    // Auto-dismiss success message and navigate back after delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                         showSuccess = false
+                        
+                        // Navigate back to login screen
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            onLoginTap()
+                        }
                     }
                 }
             } catch {
+                print("[SignUpView] Signup failed: \(error.localizedDescription)")
+                
                 await MainActor.run {
                     isLoading = false
                     errorMessage = error.localizedDescription
                     showError = true
+                    
+                    // Auto-dismiss error after 5 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                        showError = false
+                    }
                 }
             }
         }

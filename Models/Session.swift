@@ -113,7 +113,9 @@ final class SessionStore: ObservableObject {
         createdAt: firebaseUser.metadata.creationDate ?? Date()
     )
     
-    // Fetch complete user data from Firestore
+    // CRITICAL: Remove premature updateData call - wait until user is fetched
+    
+    // Fetch complete user data from Firestore with retry logic
     fetchUserFromFirestore(uid: uid, fallbackUser: basicUser) { [weak self] user in
       guard let self = self else { return }
       
@@ -122,14 +124,18 @@ final class SessionStore: ObservableObject {
         self.role = user.role
         self.assignedDietitianId = user.assignedDietitianId ?? ""
         
+        print("[SessionStore] ✅ User fully loaded - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
+        
         // CRITICAL: Set isLoggedIn = true ONLY after role is determined
         self.isLoggedIn = true
         self.isLoadingUser = false
         
-        print("[SessionStore] ✅ User fully loaded - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
+        print("[SessionStore] ✅ Navigation ready - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
         
         // Setup other services after user is fully loaded
         self.setupNotificationListener()
+        
+        // NOW update lastOnline after user document is confirmed to exist
         self.updateLastOnline()
         
         Task {
@@ -142,44 +148,80 @@ final class SessionStore: ObservableObject {
   private func fetchUserFromFirestore(uid: String, fallbackUser: FitConnectUser, completion: @escaping (FitConnectUser) -> Void) {
     let db = Firestore.firestore()
     
-    db.collection("users").document(uid).getDocument { [weak self] snapshot, error in
-      guard let self = self else { return }
-      
-      if let error = error {
-        print("[SessionStore] Error fetching user from Firestore: \(error.localizedDescription)")
-        // Use fallback user with default client role
-        var fallback = fallbackUser
-        fallback.role = "client"
-        completion(fallback)
-        return
-      }
-      
-      guard let document = snapshot, document.exists else {
-        print("[SessionStore] User document not found in Firestore. Using fallback with client role.")
-        var fallback = fallbackUser
-        fallback.role = "client"
-        completion(fallback)
-        return
-      }
-      
-      print("[SessionStore] 📄 Raw Firestore document data: \(document.data() ?? [:])")
-      
-      do {
-        var user = try document.data(as: FitConnectUser.self)
-        user.id = uid
-        user.isEmailVerified = fallbackUser.isEmailVerified
+    // Retry logic for handling signup race conditions
+    func attemptFetch(retryCount: Int = 0, maxRetries: Int = 5) {
+        let delay = Double(retryCount) * 0.5 // Exponential backoff: 0, 0.5, 1.0, 1.5, 2.0 seconds
         
-        print("[SessionStore] ✅ User decoded from Firestore - Role: '\(user.role)'")
-        completion(user)
-        
-      } catch {
-        print("[SessionStore] Error decoding user from Firestore: \(error.localizedDescription)")
-        // Use fallback user with default client role
-        var fallback = fallbackUser
-        fallback.role = "client"
-        completion(fallback)
-      }
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+            print("[SessionStore] Fetching user document (attempt \(retryCount + 1)/\(maxRetries + 1))...")
+            
+            db.collection("users").document(uid).getDocument { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("[SessionStore] Error fetching user from Firestore: \(error.localizedDescription)")
+                    
+                    if retryCount < maxRetries {
+                        print("[SessionStore] Retrying fetch in \(delay + 0.5) seconds...")
+                        attemptFetch(retryCount: retryCount + 1, maxRetries: maxRetries)
+                        return
+                    }
+                    
+                    // Final fallback after all retries
+                    print("[SessionStore] All fetch attempts failed. Using fallback with client role.")
+                    var fallback = fallbackUser
+                    fallback.role = "client"
+                    completion(fallback)
+                    return
+                }
+                
+                guard let document = snapshot, document.exists else {
+                    print("[SessionStore] User document not found (attempt \(retryCount + 1)).")
+                    
+                    if retryCount < maxRetries {
+                        print("[SessionStore] Document may not be propagated yet. Retrying in \(delay + 0.5) seconds...")
+                        attemptFetch(retryCount: retryCount + 1, maxRetries: maxRetries)
+                        return
+                    }
+                    
+                    print("[SessionStore] Document not found after all retries. Using fallback with client role.")
+                    var fallback = fallbackUser
+                    fallback.role = "client"
+                    completion(fallback)
+                    return
+                }
+                
+                print("[SessionStore] 📄 Raw Firestore document data: \(document.data() ?? [:])")
+                
+                do {
+                    var user = try document.data(as: FitConnectUser.self)
+                    user.id = uid
+                    user.isEmailVerified = fallbackUser.isEmailVerified
+                    
+                    print("[SessionStore] ✅ User decoded from Firestore - Role: '\(user.role)'")
+                    completion(user)
+                    
+                } catch {
+                    print("[SessionStore] Error decoding user from Firestore: \(error.localizedDescription)")
+                    
+                    if retryCount < maxRetries {
+                        print("[SessionStore] Decode error, retrying in \(delay + 0.5) seconds...")
+                        attemptFetch(retryCount: retryCount + 1, maxRetries: maxRetries)
+                        return
+                    }
+                    
+                    // Final fallback after all retries
+                    print("[SessionStore] Decode failed after all retries. Using fallback with client role.")
+                    var fallback = fallbackUser
+                    fallback.role = "client"
+                    completion(fallback)
+                }
+            }
+        }
     }
+    
+    // Start the fetch with retry logic
+    attemptFetch()
   }
 
   private func resetSession() {

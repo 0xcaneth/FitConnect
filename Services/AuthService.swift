@@ -46,9 +46,15 @@ class AuthService: ObservableObject {
             
             print("[AuthService] Writing to Firestore with userData: \(userData)")
             
+            // CRITICAL: Wait for Firestore write to complete before returning
             try await Firestore.firestore().collection("users").document(user.uid).setData(userData)
             
             print("[AuthService] User document created successfully with role = \(role)")
+            
+            // Additional delay to ensure Firestore propagation
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            
+            print("[AuthService] Firestore propagation delay completed")
             isLoading = false
             
         } catch {
