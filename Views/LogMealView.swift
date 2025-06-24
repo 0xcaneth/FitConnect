@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseFirestore
 
 @available(iOS 16.0, *)
 struct LogMealView: View {
@@ -7,7 +6,6 @@ struct LogMealView: View {
     @EnvironmentObject var session: SessionStore
     @StateObject private var nutritionManager = NutritionDataManager.shared
     
-    // CHANGE: Replace meal name with food selection
     @State private var selectedFood: FoodItem?
     @State private var searchText: String = ""
     @State private var showingFoodPicker = false
@@ -26,7 +24,6 @@ struct LogMealView: View {
         case snack = "Snack"
     }
     
-    // CHANGE: Computed property for current nutrition based on selection
     private var currentNutrition: NutritionEntry? {
         guard let food = selectedFood else { return nil }
         return nutritionManager.getNutrition(for: food.label, portionIndex: selectedPortionIndex)
@@ -43,10 +40,8 @@ struct LogMealView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // CHANGE: Food Search Picker
                         foodSelectionSection
                         
-                        // CHANGE: Portion Size Slider (only shown when food is selected)
                         if selectedFood != nil {
                             portionSizeSection
                         }
@@ -54,7 +49,6 @@ struct LogMealView: View {
                         // Meal Type Selection
                         mealTypeSection
                         
-                        // CHANGE: Dynamic Nutrition Display (read-only)
                         if let nutrition = currentNutrition {
                             nutritionDisplaySection(nutrition: nutrition)
                         }
@@ -498,50 +492,46 @@ struct LogMealView: View {
             return
         }
         
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateString = dateFormatter.string(from: selectedDate)
-        
-        // CHANGE: Save with nutrition data from CSV lookup
-        let mealData: [String: Any] = [
-            "mealName": food.displayName,
-            "foodLabel": food.label,
-            "mealType": selectedMealType.rawValue,
-            "portionIndex": selectedPortionIndex,
-            "portionWeight": nutrition.weight,
-            "calories": nutrition.calories,
-            "protein": nutrition.protein,
-            "fat": nutrition.fats,
-            "carbs": nutrition.carbohydrates,
-            "fiber": nutrition.fiber,
-            "sugars": nutrition.sugars,
-            "sodium": nutrition.sodium,
-            "timestamp": Timestamp(date: selectedDate),
-            "dateString": dateString
-        ]
-        
         print("[LogMealView] 💾 Saving meal: \(food.displayName), Portion: \(selectedPortionIndex + 1), Calories: \(nutrition.calories)")
         
-        Firestore.firestore()
-            .collection("users")
-            .document(userId)
-            .collection("healthData")
-            .document(dateString)
-            .collection("meals")
-            .addDocument(data: mealData) { error in
+        let nutritionData = NutritionData(
+            calories: nutrition.calories,
+            protein: nutrition.protein,
+            fat: nutrition.fats,
+            carbs: nutrition.carbohydrates,
+            fiber: nutrition.fiber,
+            sugars: nutrition.sugars,
+            sodium: nutrition.sodium
+        )
+        
+        let mealEntry = MealEntry(
+            mealName: food.displayName,
+            foodLabel: food.label,
+            mealType: selectedMealType.rawValue,
+            portionIndex: selectedPortionIndex,
+            portionWeight: nutrition.weight,
+            nutrition: nutritionData,
+            timestamp: selectedDate,
+            userId: userId
+        )
+        
+        Task {
+            do {
+                try await MealService.shared.saveMealEntry(mealEntry)
                 DispatchQueue.main.async {
-                    if let error = error {
-                        print("[LogMealView] ❌ Error saving meal: \(error)")
-                        self.showToast("Error saving meal")
-                    } else {
-                        print("[LogMealView] ✅ Meal saved successfully")
-                        self.showToast("Meal logged successfully")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            self.presentationMode.wrappedValue.dismiss()
-                        }
+                    print("[LogMealView] ✅ Meal saved successfully")
+                    self.showToast("Meal logged successfully")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        self.presentationMode.wrappedValue.dismiss()
                     }
                 }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[LogMealView] ❌ Error saving meal: \(error)")
+                    self.showToast("Error saving meal")
+                }
             }
+        }
     }
     
     private func showToast(_ message: String) {

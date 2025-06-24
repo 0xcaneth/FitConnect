@@ -497,19 +497,23 @@ struct ScanMealView: View {
     // MARK: - Save Meal
     
     private func saveMeal(mealType: Meal.MealType = .snack) async {
-        guard let image = capturedImage,
-              let analysis = analysisResult else {
-            showError("Missing image or analysis data")
+        guard let analysis = analysisResult else {
+            showError("Missing analysis data")
             return
         }
         
         isAnalyzing = true
         
         do {
-            let meal = try await saveMealToFirestore(
+            let mealName = foodPrediction?.label ?? "Scanned Meal"
+            let imageURL = capturedImage != nil ? try await uploadImageToStorage() : nil
+            
+            try await MealService.shared.saveMealFromAnalysis(
+                mealName: mealName,
+                mealType: mealType.rawValue,
                 analysis: analysis,
-                image: image,
-                mealType: mealType
+                timestamp: Date(),
+                imageURL: imageURL
             )
             
             let notificationFeedback = UINotificationFeedbackGenerator()
@@ -524,64 +528,27 @@ struct ScanMealView: View {
             
         } catch {
             showError("Failed to save meal. Please try again.")
+            print("❌ Save meal error: \(error)")
         }
         
         isAnalyzing = false
     }
-    
-    private func saveMealToFirestore(analysis: MealAnalysis, image: UIImage, mealType: Meal.MealType) async throws -> Meal {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            throw NSError(domain: "ScanMealView", code: 1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+
+    private func uploadImageToStorage() async throws -> String {
+        guard let image = capturedImage,
+              let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "ScanMealView", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid image or user data"])
         }
         
-        let mealId = UUID().uuidString
-        
-        let imageURL: String
-        do {
-            imageURL = try await uploadImageToStorage(image: image, userId: userId, mealId: mealId)
-        } catch {
-            print("❌ Image upload failed: \(error.localizedDescription)")
-            // Use empty URL if upload fails - meal can still be saved
-            imageURL = ""
-        }
-        
-        let mealName = foodPrediction?.label ?? "Scanned Meal"
-        
-        var meal = Meal(
-            mealName: mealName,
-            mealType: mealType,
-            calories: analysis.calories,
-            protein: analysis.protein,
-            fat: analysis.fat,
-            carbs: analysis.carbs,
-            timestamp: Date(),
-            imageURL: imageURL.isEmpty ? nil : imageURL,
-            userId: userId,
-            confidence: analysis.confidence
-        )
-        
-        meal.id = mealId
-        
-        do {
-            try await mealService.saveMeal(meal)
-            print("✅ Meal saved successfully with ID: \(mealId)")
-        } catch {
-            print("❌ Meal save failed: \(error.localizedDescription)")
-            throw error
-        }
-        
-        return meal
-    }
-    
-    private func uploadImageToStorage(image: UIImage, userId: String, mealId: String) async throws -> String {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
             throw NSError(domain: "ScanMealView", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid image data"])
         }
         
         let storage = Storage.storage()
         let photoId = UUID().uuidString
+        let dateString = dateString()
         
-        let imagePath = "meal_photos/\(userId)/\(mealId)/\(photoId)"
+        let imagePath = "meal_photos/\(userId)/\(dateString)/\(photoId)"
         let storageRef = storage.reference().child(imagePath)
         
         let metadata = StorageMetadata()
@@ -595,6 +562,7 @@ struct ScanMealView: View {
             throw NSError(domain: "ScanMealView", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to upload image"])
         }
     }
+
     
     // MARK: - Error Handling
     

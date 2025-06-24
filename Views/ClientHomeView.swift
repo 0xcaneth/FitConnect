@@ -144,7 +144,7 @@ struct ClientHomeView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.backgroundDark)
+                .fill(Constants.Colors.cardBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(
@@ -155,7 +155,7 @@ struct ClientHomeView: View {
                             ),
                             lineWidth: 2
                         )
-                )
+                    )
         )
     }
     
@@ -192,13 +192,7 @@ struct ClientHomeView: View {
         .frame(height: 95)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: "FF8E3C"), Color(hex: "FF5C9C")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .fill(Constants.Colors.cardBackground)
         )
     }
     
@@ -295,7 +289,7 @@ struct ClientHomeView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundDark)
+                .fill(Constants.Colors.cardBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(color, lineWidth: 2)
@@ -395,7 +389,7 @@ struct ClientHomeView: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(hex: "0D0F14"))
+                    .fill(Constants.Colors.cardBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(LinearGradient(
@@ -509,24 +503,8 @@ struct ClientHomeView: View {
                 .foregroundColor(Color(hex: "8F3FFF"))
             }
             
-            VStack(spacing: 12) {
-                Image(systemName: "star")
-                    .font(.system(size: 64))
-                    .foregroundColor(.gray.opacity(0.6))
-                
-                VStack(spacing: 4) {
-                    Text("No recent activity yet")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    Text("Complete workouts and log meals to see your activity here.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
+            RecentActivitiesView()
+                .background(Color.clear)
         }
     }
 }
