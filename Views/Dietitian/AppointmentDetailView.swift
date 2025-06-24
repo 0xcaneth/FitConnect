@@ -16,97 +16,95 @@ struct AppointmentDetailView: View {
     @State private var showError = false
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                FitConnectColors.backgroundDark.ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header Card
-                        headerCard
-                        
-                        // Client Info Card
-                        clientInfoCard
-                        
-                        // Time & Duration Card
-                        timeInfoCard
-                        
-                        // Notes Section
-                        notesSection
-                        
-                        // Action Buttons
-                        actionButtons
+        ZStack {
+            FitConnectColors.backgroundDark.ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header Card
+                    headerCard
+                    
+                    // Client Info Card
+                    clientInfoCard
+                    
+                    // Time & Duration Card
+                    timeInfoCard
+                    
+                    // Notes Section
+                    notesSection
+                    
+                    // Action Buttons
+                    actionButtons
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+            }
+        }
+        .navigationTitle("Appointment Details")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 16, weight: .medium))
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .foregroundColor(FitConnectColors.accentPurple)
                 }
             }
-            .navigationTitle("Appointment Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Back")
-                                .font(.system(size: 16, weight: .medium))
-                        }
-                        .foregroundColor(FitConnectColors.accentPurple)
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button("Edit Appointment") {
+                        showingRescheduleSheet = true
                     }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("Edit Appointment") {
-                            showingRescheduleSheet = true
-                        }
-                        
-                        if appointment.status != .completed {
-                            Button("Mark Complete") {
-                                Task {
-                                    await markComplete()
-                                }
+                    
+                    if appointment.status != .completed {
+                        Button("Mark Complete") {
+                            Task {
+                                await markComplete()
                             }
                         }
-                        
-                        Divider()
-                        
-                        Button("Cancel Appointment", role: .destructive) {
-                            showingCancelAlert = true
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(FitConnectColors.accentPurple)
                     }
+                    
+                    Divider()
+                    
+                    Button("Cancel Appointment", role: .destructive) {
+                        showingCancelAlert = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(FitConnectColors.accentPurple)
                 }
             }
-            .onAppear {
-                notes = appointment.notes ?? ""
-            }
-            .alert("Cancel Appointment", isPresented: $showingCancelAlert) {
-                Button("Cancel", role: .destructive) {
-                    Task {
-                        await cancelAppointment()
-                    }
+        }
+        .onAppear {
+            notes = appointment.notes ?? ""
+        }
+        .alert("Cancel Appointment", isPresented: $showingCancelAlert) {
+            Button("Cancel", role: .destructive) {
+                Task {
+                    await cancelAppointment()
                 }
-                Button("Keep Appointment", role: .cancel) { }
-            } message: {
-                Text("Are you sure you want to cancel this appointment? This action cannot be undone.")
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK") { }
-            } message: {
-                Text(errorMessage ?? "An error occurred")
-            }
-            .sheet(isPresented: $showingRescheduleSheet) {
-                RescheduleAppointmentView(appointment: appointment)
-                    .environmentObject(session)
-            }
+            Button("Keep Appointment", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to cancel this appointment? This action cannot be undone.")
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage ?? "An error occurred")
+        }
+        .sheet(isPresented: $showingRescheduleSheet) {
+            RescheduleAppointmentView(appointment: appointment)
+                .environmentObject(session)
         }
     }
     

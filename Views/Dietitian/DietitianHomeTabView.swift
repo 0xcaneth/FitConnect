@@ -10,19 +10,11 @@ struct DietitianHomeTabView: View {
                     Text("Dashboard")
                 }
             
-            // TEMP: Placeholder for DietitianClientsView
-            VStack {
-                Text("Clients")
-                    .font(.title)
-                    .foregroundColor(.white)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.darkBackground)
-            .tabItem {
-                Image(systemName: "person.3.fill")
-                Text("Clients")
-            }
+            ClientsView()
+                .tabItem {
+                    Image(systemName: "person.3.fill")
+                    Text("Clients")
+                }
             
             DietitianMessagesListView()
                 .tabItem {

@@ -19,6 +19,7 @@ struct ClientHomeView: View {
     @State private var chatSummaryForSheet: ChatSummary? = nil
     @State private var showingScanMeal = false
     @State private var showingLogMeal = false
+    @State private var showingAppointments = false
 
     private let chatService = ChatService.shared
     
@@ -55,16 +56,23 @@ struct ClientHomeView: View {
             if healthKitManager.authorizationStatus == .sharingAuthorized {
                 showHealthKitBanner = false
             }
-            if session.assignedDietitianId.isEmpty {
-                session.assignedDietitianId = "mock_dietitian_123"
-                print("[ClientHomeView] Assigned mock dietitian for testing")
-            }
+            // if session.assignedDietitianId.isEmpty {
+            //     session.assignedDietitianId = "mock_dietitian_123"
+            //     print("[ClientHomeView] Assigned mock dietitian for testing")
+            // }
+            print("[ClientHomeView] Current user ID: \(session.currentUserId ?? "nil")")
+            print("[ClientHomeView] Expert ID: \(session.currentUser?.expertId ?? "nil")")
+            print("[ClientHomeView] Assigned dietitian ID: \(session.assignedDietitianId)")
         }
         .sheet(isPresented: $showingScanMeal) {
             ScanMealView()
         }
         .sheet(isPresented: $showingLogMeal) {
             LogMealView()
+                .environmentObject(session)
+        }
+        .sheet(isPresented: $showingAppointments) {
+            ClientAppointmentsView()
                 .environmentObject(session)
         }
         .alert("Error", isPresented: $showError) {
@@ -333,12 +341,12 @@ struct ClientHomeView: View {
                     }
                     
                     quickActionButton(
-                        title: "Chat w/ Dietitian",
-                        icon: "bubble.left.and.bubble.right.fill",
+                        title: "Appointments",
+                        icon: "calendar",
                         gradient: GradientColors(start: Color(hex: "AB47BC"), end: Color(hex: "8E24AA")),
-                        isDisabled: session.assignedDietitianId.isEmpty
+                        isDisabled: session.currentUser?.expertId?.isEmpty ?? true
                     ) {
-                        openChatWithAssignedDietitian()
+                        openAppointments()
                     }
                 }
             }
@@ -351,6 +359,98 @@ struct ClientHomeView: View {
             }
         }
     }
+    
+    private func openAppointments() {
+        guard let expertId = session.currentUser?.expertId, !expertId.isEmpty else {
+            errorMessage = "No expert connected yet. Please connect to an expert first."
+            showError = true
+            return
+        }
+        
+        showingAppointments = true
+    }
+    
+    //    private func openChatWithAssignedDietitian() {
+    //        if isCreatingChat {
+    //            print("[ClientHome] openChatWithAssignedDietitian called while already isCreatingChat. Aborting.")
+    //            return
+    //        }
+    //
+    //        guard let currentUserId = session.currentUserId,
+    //              let currentUserFullName = session.currentUser?.fullName,
+    //              !session.assignedDietitianId.isEmpty else {
+    //            errorMessage = "User not logged in or no dietitian assigned."
+    //            showError = true
+    //            return
+    //        }
+    //
+    //        let dietitianId = session.assignedDietitianId
+    //
+    //        // Ensure client and dietitian are not the same (though assignedDietitianId should prevent this)
+    //        guard currentUserId != dietitianId else {
+    //            errorMessage = "Invalid chat configuration."
+    //            showError = true
+    //            return
+    //        }
+    //
+    //        isCreatingChat = true
+    //
+    //        if dietitianId == "mock_dietitian_123" {
+    //            let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
+    //            let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: "Dr. Sarah Wilson", photoURL: nil)
+    //
+    //            chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
+    //                DispatchQueue.main.async {
+    //                    self.isCreatingChat = false
+    //                    switch result {
+    //                    case .success(let chatSummary):
+    //                        self.chatSummaryForSheet = chatSummary
+    //                    case .failure(let error):
+    //                        self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
+    //                        self.showError = true
+    //                    }
+    //                }
+    //            }
+    //            return
+    //        }
+    //
+    //        let db = Firestore.firestore()
+    //        db.collection("users").document(dietitianId).getDocument { dietitianSnapshot, error in
+    //            DispatchQueue.main.async {
+    //                if let error = error {
+    //                    self.errorMessage = "Could not fetch dietitian details: \(error.localizedDescription)"
+    //                    self.showError = true
+    //                    self.isCreatingChat = false
+    //                    return
+    //                }
+    //
+    //                guard let dietitianData = dietitianSnapshot?.data(),
+    //                      let dietitianFullName = dietitianData["fullName"] as? String else {
+    //                    self.errorMessage = "Dietitian details incomplete."
+    //                    self.showError = true
+    //                    self.isCreatingChat = false
+    //                    return
+    //                }
+    //                let dietitianPhotoURL = dietitianData["photoURL"] as? String
+    //
+    //                let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
+    //                let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: dietitianFullName, photoURL: dietitianPhotoURL)
+    //
+    //                chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
+    //                    DispatchQueue.main.async {
+    //                        self.isCreatingChat = false
+    //                        switch result {
+    //                        case .success(let chatSummary):
+    //                            self.chatSummaryForSheet = chatSummary
+    //                        case .failure(let error):
+    //                            self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
+    //                            self.showError = true
+    //                        }
+    //                    }
+    //                }
+    //            }
+    //        }
+    //    }
     
     struct GradientColors {
         let start: Color
@@ -404,88 +504,6 @@ struct ClientHomeView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(isDisabled)
-    }
-    
-    private func openChatWithAssignedDietitian() {
-        if isCreatingChat {
-            print("[ClientHome] openChatWithAssignedDietitian called while already isCreatingChat. Aborting.")
-            return
-        }
-
-        guard let currentUserId = session.currentUserId,
-              let currentUserFullName = session.currentUser?.fullName,
-              !session.assignedDietitianId.isEmpty else {
-            errorMessage = "User not logged in or no dietitian assigned."
-            showError = true
-            return
-        }
-        
-        let dietitianId = session.assignedDietitianId
-        
-        // Ensure client and dietitian are not the same (though assignedDietitianId should prevent this)
-        guard currentUserId != dietitianId else {
-            errorMessage = "Invalid chat configuration."
-            showError = true
-            return
-        }
-
-        isCreatingChat = true
-
-        if dietitianId == "mock_dietitian_123" {
-            let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
-            let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: "Dr. Sarah Wilson", photoURL: nil)
-
-            chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
-                DispatchQueue.main.async {
-                    self.isCreatingChat = false
-                    switch result {
-                    case .success(let chatSummary):
-                        self.chatSummaryForSheet = chatSummary
-                    case .failure(let error):
-                        self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
-                        self.showError = true
-                    }
-                }
-            }
-            return
-        }
-
-        let db = Firestore.firestore()
-        db.collection("users").document(dietitianId).getDocument { dietitianSnapshot, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    self.errorMessage = "Could not fetch dietitian details: \(error.localizedDescription)"
-                    self.showError = true
-                    self.isCreatingChat = false
-                    return
-                }
-                
-                guard let dietitianData = dietitianSnapshot?.data(),
-                      let dietitianFullName = dietitianData["fullName"] as? String else {
-                    self.errorMessage = "Dietitian details incomplete."
-                    self.showError = true
-                    self.isCreatingChat = false
-                    return
-                }
-                let dietitianPhotoURL = dietitianData["photoURL"] as? String
-
-                let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
-                let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: dietitianFullName, photoURL: dietitianPhotoURL)
-
-                chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
-                    DispatchQueue.main.async {
-                        self.isCreatingChat = false
-                        switch result {
-                        case .success(let chatSummary):
-                            self.chatSummaryForSheet = chatSummary
-                        case .failure(let error):
-                            self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
-                            self.showError = true
-                        }
-                    }
-                }
-            }
-        }
     }
     
     private var recentActivitySection: some View {

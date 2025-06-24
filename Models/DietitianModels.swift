@@ -139,6 +139,8 @@ struct Appointment: Identifiable, Codable, Equatable {
 
 enum AppointmentStatus: String, Codable, CaseIterable {
     case pending = "pending"
+    case accepted = "accepted"
+    case rejected = "rejected"
     case confirmed = "confirmed"
     case scheduled = "scheduled"
     case completed = "completed"
@@ -148,6 +150,8 @@ enum AppointmentStatus: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .pending: return "Pending"
+        case .accepted: return "Accepted"
+        case .rejected: return "Rejected"
         case .confirmed: return "Confirmed"
         case .scheduled: return "Scheduled"
         case .completed: return "Completed"
@@ -159,6 +163,8 @@ enum AppointmentStatus: String, Codable, CaseIterable {
     var color: Color {
         switch self {
         case .pending: return Color.orange
+        case .accepted: return Color.green
+        case .rejected: return Color.red
         case .confirmed: return Color.green
         case .scheduled: return Color(hex: "#6E56E9") ?? Color.blue
         case .completed: return Color.purple

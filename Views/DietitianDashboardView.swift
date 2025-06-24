@@ -317,6 +317,10 @@ struct DashboardAppointmentRowView: View {
             return "Pending"
         case .confirmed:
             return "Confirmed"
+        case .accepted:
+            return "Accepted"
+        case .rejected:
+            return "Rejected"
         }
     }
     
@@ -330,6 +334,10 @@ struct DashboardAppointmentRowView: View {
             return .orange
         case .confirmed:
             return .green
+        case .accepted:
+            return .green
+        case .rejected:
+            return .red
         }
     }
     

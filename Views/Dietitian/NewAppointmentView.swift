@@ -19,6 +19,7 @@ struct NewAppointmentView: View {
     @State private var showError = false
     @State private var conflicts: [Appointment] = []
     @State private var showConflictAlert = false
+    @State private var allClients: [ClientProfile] = []
     
     private let durationOptions: [(String, TimeInterval)] = [
         ("30 minutes", 1800),
@@ -84,6 +85,9 @@ struct NewAppointmentView: View {
             } message: {
                 Text(errorMessage ?? "An error occurred")
             }
+            .onAppear {
+                loadAllClients()
+            }
         }
     }
     
@@ -103,8 +107,19 @@ struct NewAppointmentView: View {
                         .font(.system(size: 16))
                         .foregroundColor(FitConnectColors.textPrimary)
                         .onChange(of: searchText) { newValue in
-                            Task {
-                                await searchClients(query: newValue)
+                            if newValue.isEmpty {
+                                // Show all clients when search is empty
+                                searchResults = Array(allClients.prefix(10))
+                            } else {
+                                Task {
+                                    await searchClients(query: newValue)
+                                }
+                            }
+                        }
+                        .onTapGesture {
+                            // Show all clients when field is tapped
+                            if searchResults.isEmpty {
+                                searchResults = Array(allClients.prefix(10))
                             }
                         }
                 }
@@ -232,6 +247,7 @@ struct NewAppointmentView: View {
                 )
                 .datePickerStyle(CompactDatePickerStyle())
                 .foregroundColor(FitConnectColors.textPrimary)
+                .colorScheme(.dark)
                 
                 DatePicker(
                     "Start Time",
@@ -240,6 +256,7 @@ struct NewAppointmentView: View {
                 )
                 .datePickerStyle(CompactDatePickerStyle())
                 .foregroundColor(FitConnectColors.textPrimary)
+                .colorScheme(.dark)
                 
                 HStack {
                     Text("End Time")
@@ -280,7 +297,17 @@ struct NewAppointmentView: View {
                             .padding(.vertical, 12)
                             .frame(maxWidth: .infinity)
                             .background(
-                                duration == option.1 ? FitConnectColors.accentPurple : FitConnectColors.inputBackground
+                                duration == option.1 ? 
+                                LinearGradient(
+                                    colors: [FitConnectColors.accentPurple, FitConnectColors.accentBlue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ) : 
+                                LinearGradient(
+                                    colors: [FitConnectColors.inputBackground, FitConnectColors.inputBackground],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
                             .cornerRadius(8)
                     }
@@ -353,14 +380,26 @@ struct NewAppointmentView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(isFormValid ? FitConnectColors.accentPurple : FitConnectColors.textTertiary)
+            .background(
+                isFormValid ? 
+                LinearGradient(
+                    colors: [FitConnectColors.accentPurple, FitConnectColors.accentBlue],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ) : 
+                LinearGradient(
+                    colors: [FitConnectColors.textTertiary, FitConnectColors.textTertiary],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
             .cornerRadius(12)
         }
         .disabled(!isFormValid || isCreating)
     }
     
     private var isFormValid: Bool {
-        selectedClient != nil && selectedStartTime > Date()
+        selectedClient != nil
     }
     
     // MARK: - Actions
@@ -373,22 +412,51 @@ struct NewAppointmentView: View {
         
         isSearching = true
         
-        // TODO: Implement actual user search via UserService
-        // For now, using mock data
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        let mockClients = [
-            ClientProfile(name: "John Doe", email: "john@example.com", assignedDietitianId: session.currentUserId ?? ""),
-            ClientProfile(name: "Jane Smith", email: "jane@example.com", assignedDietitianId: session.currentUserId ?? ""),
-            ClientProfile(name: "Mike Johnson", email: "mike@example.com", assignedDietitianId: session.currentUserId ?? "")
-        ]
-        
-        await MainActor.run {
-            searchResults = mockClients.filter { client in
-                client.name.localizedCaseInsensitiveContains(query) ||
-                client.email.localizedCaseInsensitiveContains(query)
+        guard let dietitianId = session.currentUserId else {
+            await MainActor.run {
+                searchResults = []
+                isSearching = false
             }
-            isSearching = false
+            return
+        }
+        
+        print("[NewAppointment] Searching for clients with query: '\(query)' for dietitian: \(dietitianId)")
+        
+        do {
+            let db = Firestore.firestore()
+            let snapshot = try await db.collection("dietitians")
+                .document(dietitianId)
+                .collection("clients")
+                .getDocuments()
+            
+            print("[NewAppointment] Found \(snapshot.documents.count) client documents")
+            
+            let clients = snapshot.documents.compactMap { doc -> ClientProfile? in
+                do {
+                    let client = try doc.data(as: ClientProfile.self)
+                    print("[NewAppointment] Loaded client: \(client.name) (\(client.email))")
+                    return client
+                } catch {
+                    print("[NewAppointment] Error decoding client: \(error)")
+                    return nil
+                }
+            }
+            
+            await MainActor.run {
+                self.allClients = clients
+                self.searchResults = clients.filter { client in
+                    client.name.localizedCaseInsensitiveContains(query) ||
+                    client.email.localizedCaseInsensitiveContains(query)
+                }
+                self.isSearching = false
+                print("[NewAppointment] Filtered results: \(self.searchResults.count) clients")
+            }
+        } catch {
+            print("[NewAppointment] Error fetching clients: \(error)")
+            await MainActor.run {
+                searchResults = []
+                isSearching = false
+            }
         }
     }
     
@@ -500,6 +568,96 @@ struct NewAppointmentView: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    private func loadAllClients() {
+        guard let dietitianId = session.currentUserId else { return }
+        
+        print("[NewAppointment] Loading all clients for dietitian: \(dietitianId)")
+        
+        Task {
+            do {
+                let db = Firestore.firestore()
+                let snapshot = try await db.collection("dietitians")
+                    .document(dietitianId)
+                    .collection("clients")
+                    .getDocuments()
+                
+                print("[NewAppointment] Found \(snapshot.documents.count) total clients in dietitians collection")
+                
+                let clients = snapshot.documents.compactMap { doc -> ClientProfile? in
+                    do {
+                        let client = try doc.data(as: ClientProfile.self)
+                        print("[NewAppointment] Client: \(client.name) (\(client.email))")
+                        return client
+                    } catch {
+                        print("[NewAppointment] Error decoding client: \(error)")
+                        return nil
+                    }
+                }
+                
+                await MainActor.run {
+                    self.allClients = clients
+                    if searchText.isEmpty {
+                        self.searchResults = Array(clients.prefix(10))
+                    }
+                    
+                    // If no clients found in dietitians collection, try users collection
+                    if clients.isEmpty {
+                        print("[NewAppointment] No clients in dietitians collection, trying users collection...")
+                        self.loadClientsFromUsers()
+                    }
+                }
+                
+            } catch {
+                print("[NewAppointment] Error loading clients: \(error)")
+                // Fallback to users collection
+                loadClientsFromUsers()
+            }
+        }
+    }
+    
+    private func loadClientsFromUsers() {
+        guard let dietitianId = session.currentUserId else { return }
+        
+        print("[NewAppointment] Loading clients from users collection where expertId = \(dietitianId)")
+        
+        Task {
+            do {
+                let db = Firestore.firestore()
+                let snapshot = try await db.collection("users")
+                    .whereField("expertId", isEqualTo: dietitianId)
+                    .getDocuments()
+                
+                print("[NewAppointment] Found \(snapshot.documents.count) users with this dietitian as expert")
+                
+                let clients = snapshot.documents.compactMap { doc -> ClientProfile? in
+                    let data = doc.data()
+                    
+                    let name = data["fullName"] as? String ?? "Unknown"
+                    let email = data["email"] as? String ?? ""
+                    
+                    print("[NewAppointment] User: \(name) (\(email))")
+                    
+                    return ClientProfile(
+                        name: name,
+                        email: email,
+                        assignedDietitianId: dietitianId
+                    )
+                }
+                
+                await MainActor.run {
+                    if self.allClients.isEmpty {
+                        self.allClients = clients
+                        self.searchResults = Array(clients.prefix(10))
+                        print("[NewAppointment] Loaded \(clients.count) clients from users collection")
+                    }
+                }
+                
+            } catch {
+                print("[NewAppointment] Error loading from users collection: \(error)")
+            }
+        }
     }
 }
 

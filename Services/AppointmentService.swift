@@ -30,13 +30,6 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     private var listeners: [String: ListenerRegistration] = [:]
     
     private init() {
-        setupFirestorePersistence()
-    }
-    
-    private func setupFirestorePersistence() {
-        let settings = FirestoreSettings()
-        settings.isPersistenceEnabled = true
-        firestore.settings = settings
     }
     
     deinit {
@@ -62,7 +55,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
         
         firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: startOfDay))
             .whereField("startTime", isLessThan: Timestamp(date: endOfDay))
             .order(by: "startTime")
@@ -126,7 +119,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     ) -> ListenerRegistration {
         return firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: startDate))
             .whereField("startTime", isLessThan: Timestamp(date: endDate))
             .order(by: "startTime")
@@ -170,7 +163,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     ) {
         firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: startDate))
             .whereField("startTime", isLessThan: Timestamp(date: endDate))
             .getDocuments { snapshot, error in
@@ -193,10 +186,10 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     ) async throws -> [Appointment] {
         var query = firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .whereField("startTime", isLessThan: Timestamp(date: endTime))
             .whereField("endTime", isGreaterThan: Timestamp(date: startTime))
-            .whereField("status", in: [AppointmentStatus.pending.rawValue, AppointmentStatus.confirmed.rawValue, AppointmentStatus.scheduled.rawValue])
+            .whereField("status", in: [AppointmentStatus.pending.rawValue, AppointmentStatus.accepted.rawValue, AppointmentStatus.confirmed.rawValue, AppointmentStatus.scheduled.rawValue])
         
         let snapshot = try await query.getDocuments()
         
@@ -260,7 +253,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
         
         let docRef = try await firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .addDocument(data: appointmentData)
         
         return docRef.documentID
@@ -277,13 +270,16 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
             updateData["completedAt"] = FieldValue.serverTimestamp()
         case .cancelled:
             updateData["cancelledAt"] = FieldValue.serverTimestamp()
+            if let currentUserId = Auth.auth().currentUser?.uid {
+                updateData["cancelledBy"] = currentUserId == dietitianId ? "dietitian" : "client"
+            }
         default:
             break
         }
         
         try await firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .document(appointmentId)
             .updateData(updateData)
     }
@@ -328,7 +324,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
         
         try await firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .document(appointmentId)
             .updateData(updateData)
     }
@@ -351,7 +347,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     func getAppointmentById(dietitianId: String, appointmentId: String) async throws -> Appointment? {
         let document = try await firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .document(appointmentId)
             .getDocument()
         
@@ -365,7 +361,7 @@ class AppointmentService: ObservableObject, AppointmentServiceProtocol {
     func getAppointmentsForDateRange(dietitianId: String, startDate: Date, endDate: Date) async throws -> [Appointment] {
         let snapshot = try await firestore.collection("dietitians")
             .document(dietitianId)
-            .collection("schedule")
+            .collection("appointments")
             .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: startDate))
             .whereField("startTime", isLessThan: Timestamp(date: endDate))
             .order(by: "startTime")

@@ -146,7 +146,26 @@ service cloud.firestore {
         allow delete: if request.auth != null 
                      && (request.auth.uid == dietitianId || request.auth.uid == clientId);
       }
-
+      
+      // ----------------------------
+      // APPOINTMENTS SUBCOLLECTION (for appointment scheduling) - TEMPORARY PERMISSIVE RULES
+      // ----------------------------
+      match /appointments/{appointmentId} {
+        // Dietitians can read/write/list their own appointments
+        allow read, write, list: if request.auth != null && request.auth.uid == dietitianId;
+        
+        // TEMPORARY: Allow any authenticated user to read appointments for debugging
+        allow read, list: if request.auth != null;
+        
+        // TEMPORARY: Allow any authenticated user to update appointments for debugging
+        allow update: if request.auth != null &&
+          request.resource.data.status == 'cancelled';
+        
+        // Clients can create appointments for themselves
+        allow create: if request.auth != null && 
+          request.auth.uid == request.resource.data.clientId;
+      }
+      
       // Other dietitian subcollections
       match /{subCollection}/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == dietitianId;
