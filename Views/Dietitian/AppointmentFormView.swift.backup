@@ -1,0 +1,55 @@
+import SwiftUI
+
+struct AppointmentFormView: View {
+    let dietitianId: String
+    let editingAppointment: Appointment?
+    @Environment(\.dismiss) private var dismiss
+    
+    init(dietitianId: String, editingAppointment: Appointment? = nil) {
+        self.dietitianId = dietitianId
+        self.editingAppointment = editingAppointment
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: "#0D0F14").ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Text(editingAppointment != nil ? "Edit Appointment" : "New Appointment")
+                        .font(.title)
+                        .foregroundColor(.white)
+                    
+                    Text("Form Coming Soon")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    
+                    Text("Dietitian ID: \(dietitianId)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    
+                    Spacer()
+                    
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .padding()
+                    .foregroundColor(.white)
+                    .background(Color(hex: "#6E56E9"))
+                    .cornerRadius(10)
+                }
+                .padding()
+            }
+            .navigationBarHidden(true)
+        }
+    }
+}
+
+#if DEBUG
+struct AppointmentFormView_Previews: PreviewProvider {
+    static var previews: some View {
+        AppointmentFormView(dietitianId: "dietitian123")
+            .preferredColorScheme(.dark)
+    }
+}
+#endif

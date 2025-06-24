@@ -1,0 +1,70 @@
+import SwiftUI
+
+struct AppointmentDetailView: View {
+    let appointment: Appointment
+    let dietitianId: String
+    @Environment(\.dismiss) private var dismiss
+    
+    init(appointment: Appointment, dietitianId: String) {
+        self.appointment = appointment
+        self.dietitianId = dietitianId
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: "#0D0F14").ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Text("Appointment Details")
+                        .font(.title)
+                        .foregroundColor(.white)
+                    
+                    Text(appointment.clientName ?? "Unknown Client")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Text(appointment.timeRangeString)
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "#6E56E9"))
+                    
+                    if let notes = appointment.notes {
+                        Text(notes)
+                            .font(.body)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                    }
+                    
+                    Spacer()
+                    
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .padding()
+                    .foregroundColor(.white)
+                    .background(Color(hex: "#6E56E9"))
+                    .cornerRadius(10)
+                }
+                .padding()
+            }
+            .navigationBarHidden(true)
+        }
+    }
+}
+
+#if DEBUG
+struct AppointmentDetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        let mockAppointment = Appointment(
+            clientId: "client123",
+            startTime: Date(),
+            endTime: Date().addingTimeInterval(3600),
+            notes: "Initial consultation",
+            status: .pending
+        )
+        
+        AppointmentDetailView(appointment: mockAppointment, dietitianId: "dietitian123")
+            .preferredColorScheme(.dark)
+    }
+}
+#endif

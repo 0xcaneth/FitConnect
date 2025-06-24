@@ -1,0 +1,736 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		362A11A92DDF783400D6FED1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 362A11A82DDF783400D6FED1 /* GoogleSignIn */; };
+		362A11AB2DDF783400D6FED1 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 362A11AA2DDF783400D6FED1 /* GoogleSignInSwift */; };
+		3655E3CD2DEB4C1800D42B52 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 3655E3CC2DEB4C1800D42B52 /* FirebaseStorage */; };
+		36D513302DDF9F1F00CF578D /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 36D5132F2DDF9F1F00CF578D /* FirebaseAnalytics */; };
+		36D5133A2DDF9F1F00CF578D /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 36D513392DDF9F1F00CF578D /* FirebaseAuth */; };
+		36D5133E2DDF9F1F00CF578D /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 36D5133D2DDF9F1F00CF578D /* FirebaseCore */; };
+		36D513462DDF9F1F00CF578D /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 36D513452DDF9F1F00CF578D /* FirebaseFirestore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		36686FDD2DBC1A0D003F4D65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 36686FC42DBC1A0C003F4D65 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 36686FCB2DBC1A0C003F4D65;
+			remoteInfo = FitConnect;
+		};
+		36686FE72DBC1A0E003F4D65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 36686FC42DBC1A0C003F4D65 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 36686FCB2DBC1A0C003F4D65;
+			remoteInfo = FitConnect;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		36D45D802DC6995C00E797B2 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		36686FCC2DBC1A0C003F4D65 /* FitConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		36686FDC2DBC1A0D003F4D65 /* FitConnectTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitConnectTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		36686FE62DBC1A0E003F4D65 /* FitConnectUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitConnectUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		366870282DBC291A003F4D65 /* Exceptions for "Resources" folder in "FitConnectTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+			);
+			target = 36686FDB2DBC1A0D003F4D65 /* FitConnectTests */;
+		};
+		366870292DBC291A003F4D65 /* Exceptions for "Resources" folder in "FitConnectUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+			);
+			target = 36686FE52DBC1A0E003F4D65 /* FitConnectUITests */;
+		};
+		36FF4C772DC6A9E000A28478 /* Exceptions for "Resources" folder in "FitConnect" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 36686FCB2DBC1A0C003F4D65 /* FitConnect */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		364B70B32DC66F4F003F2B6B /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		36686FCE2DBC1A0C003F4D65 /* FitConnect */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FitConnect;
+			sourceTree = "<group>";
+		};
+		36686FDF2DBC1A0D003F4D65 /* FitConnectTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FitConnectTests;
+			sourceTree = "<group>";
+		};
+		36686FE92DBC1A0E003F4D65 /* FitConnectUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FitConnectUITests;
+			sourceTree = "<group>";
+		};
+		36686FF92DBC1A4C003F4D65 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		36686FFD2DBC1A68003F4D65 /* Controllers */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Controllers;
+			sourceTree = "<group>";
+		};
+		36686FFE2DBC1A71003F4D65 /* Services */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Services;
+			sourceTree = "<group>";
+		};
+		36686FFF2DBC1A77003F4D65 /* Helpers */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		366870002DBC1A7D003F4D65 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				36FF4C772DC6A9E000A28478 /* Exceptions for "Resources" folder in "FitConnect" target */,
+				366870282DBC291A003F4D65 /* Exceptions for "Resources" folder in "FitConnectTests" target */,
+				366870292DBC291A003F4D65 /* Exceptions for "Resources" folder in "FitConnectUITests" target */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		36686FC92DBC1A0C003F4D65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				362A11A92DDF783400D6FED1 /* GoogleSignIn in Frameworks */,
+				362A11AB2DDF783400D6FED1 /* GoogleSignInSwift in Frameworks */,
+				36D513302DDF9F1F00CF578D /* FirebaseAnalytics in Frameworks */,
+				36D5133A2DDF9F1F00CF578D /* FirebaseAuth in Frameworks */,
+				3655E3CD2DEB4C1800D42B52 /* FirebaseStorage in Frameworks */,
+				36D5133E2DDF9F1F00CF578D /* FirebaseCore in Frameworks */,
+				36D513462DDF9F1F00CF578D /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FD92DBC1A0D003F4D65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FE32DBC1A0E003F4D65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3655E3CB2DEB4C1800D42B52 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		36686FC32DBC1A0C003F4D65 = {
+			isa = PBXGroup;
+			children = (
+				364B70B32DC66F4F003F2B6B /* Views */,
+				366870002DBC1A7D003F4D65 /* Resources */,
+				36686FFF2DBC1A77003F4D65 /* Helpers */,
+				36686FFE2DBC1A71003F4D65 /* Services */,
+				36686FFD2DBC1A68003F4D65 /* Controllers */,
+				36686FF92DBC1A4C003F4D65 /* Models */,
+				36686FCE2DBC1A0C003F4D65 /* FitConnect */,
+				36686FDF2DBC1A0D003F4D65 /* FitConnectTests */,
+				36686FE92DBC1A0E003F4D65 /* FitConnectUITests */,
+				3655E3CB2DEB4C1800D42B52 /* Frameworks */,
+				36686FCD2DBC1A0C003F4D65 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		36686FCD2DBC1A0C003F4D65 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				36686FCC2DBC1A0C003F4D65 /* FitConnect.app */,
+				36686FDC2DBC1A0D003F4D65 /* FitConnectTests.xctest */,
+				36686FE62DBC1A0E003F4D65 /* FitConnectUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		36686FCB2DBC1A0C003F4D65 /* FitConnect */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36686FF02DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnect" */;
+			buildPhases = (
+				36686FC82DBC1A0C003F4D65 /* Sources */,
+				36686FC92DBC1A0C003F4D65 /* Frameworks */,
+				36686FCA2DBC1A0C003F4D65 /* Resources */,
+				36D45D802DC6995C00E797B2 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				364B70B32DC66F4F003F2B6B /* Views */,
+				36686FCE2DBC1A0C003F4D65 /* FitConnect */,
+				36686FF92DBC1A4C003F4D65 /* Models */,
+				36686FFD2DBC1A68003F4D65 /* Controllers */,
+				36686FFE2DBC1A71003F4D65 /* Services */,
+				36686FFF2DBC1A77003F4D65 /* Helpers */,
+				366870002DBC1A7D003F4D65 /* Resources */,
+			);
+			name = FitConnect;
+			productName = FitConnect;
+			productReference = 36686FCC2DBC1A0C003F4D65 /* FitConnect.app */;
+			productType = "com.apple.product-type.application";
+		};
+		36686FDB2DBC1A0D003F4D65 /* FitConnectTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36686FF32DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnectTests" */;
+			buildPhases = (
+				36686FD82DBC1A0D003F4D65 /* Sources */,
+				36686FD92DBC1A0D003F4D65 /* Frameworks */,
+				36686FDA2DBC1A0D003F4D65 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				36686FDE2DBC1A0D003F4D65 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				36686FDF2DBC1A0D003F4D65 /* FitConnectTests */,
+			);
+			name = FitConnectTests;
+			productName = FitConnectTests;
+			productReference = 36686FDC2DBC1A0D003F4D65 /* FitConnectTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		36686FE52DBC1A0E003F4D65 /* FitConnectUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36686FF62DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnectUITests" */;
+			buildPhases = (
+				36686FE22DBC1A0E003F4D65 /* Sources */,
+				36686FE32DBC1A0E003F4D65 /* Frameworks */,
+				36686FE42DBC1A0E003F4D65 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				36686FE82DBC1A0E003F4D65 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				36686FE92DBC1A0E003F4D65 /* FitConnectUITests */,
+			);
+			name = FitConnectUITests;
+			productName = FitConnectUITests;
+			productReference = 36686FE62DBC1A0E003F4D65 /* FitConnectUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		36686FC42DBC1A0C003F4D65 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					36686FCB2DBC1A0C003F4D65 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					36686FDB2DBC1A0D003F4D65 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 36686FCB2DBC1A0C003F4D65;
+					};
+					36686FE52DBC1A0E003F4D65 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 36686FCB2DBC1A0C003F4D65;
+					};
+				};
+			};
+			buildConfigurationList = 36686FC72DBC1A0C003F4D65 /* Build configuration list for PBXProject "FitConnect" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 36686FC32DBC1A0C003F4D65;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				362A11A72DDF783400D6FED1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 36686FCD2DBC1A0C003F4D65 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				36686FCB2DBC1A0C003F4D65 /* FitConnect */,
+				36686FDB2DBC1A0D003F4D65 /* FitConnectTests */,
+				36686FE52DBC1A0E003F4D65 /* FitConnectUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		36686FCA2DBC1A0C003F4D65 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FDA2DBC1A0D003F4D65 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FE42DBC1A0E003F4D65 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		36686FC82DBC1A0C003F4D65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FD82DBC1A0D003F4D65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36686FE22DBC1A0E003F4D65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		36686FDE2DBC1A0D003F4D65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 36686FCB2DBC1A0C003F4D65 /* FitConnect */;
+			targetProxy = 36686FDD2DBC1A0D003F4D65 /* PBXContainerItemProxy */;
+		};
+		36686FE82DBC1A0E003F4D65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 36686FCB2DBC1A0C003F4D65 /* FitConnect */;
+			targetProxy = 36686FE72DBC1A0E003F4D65 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		36686FEE2DBC1A0E003F4D65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		36686FEF2DBC1A0E003F4D65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		36686FF12DBC1A0E003F4D65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = FitConnect/FitConnect.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=*]" = Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnect;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		36686FF22DBC1A0E003F4D65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = FitConnect/FitConnect.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=*]" = Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnect;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		36686FF42DBC1A0E003F4D65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnectTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FitConnect.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FitConnect";
+			};
+			name = Debug;
+		};
+		36686FF52DBC1A0E003F4D65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnectTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FitConnect.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FitConnect";
+			};
+			name = Release;
+		};
+		36686FF72DBC1A0E003F4D65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnectUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FitConnect;
+			};
+			name = Debug;
+		};
+		36686FF82DBC1A0E003F4D65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 54C4C3P3UP;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.canacar.FitConnectUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FitConnect;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		36686FC72DBC1A0C003F4D65 /* Build configuration list for PBXProject "FitConnect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36686FEE2DBC1A0E003F4D65 /* Debug */,
+				36686FEF2DBC1A0E003F4D65 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36686FF02DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36686FF12DBC1A0E003F4D65 /* Debug */,
+				36686FF22DBC1A0E003F4D65 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36686FF32DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnectTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36686FF42DBC1A0E003F4D65 /* Debug */,
+				36686FF52DBC1A0E003F4D65 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36686FF62DBC1A0E003F4D65 /* Build configuration list for PBXNativeTarget "FitConnectUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36686FF72DBC1A0E003F4D65 /* Debug */,
+				36686FF82DBC1A0E003F4D65 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		362A11A72DDF783400D6FED1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+		36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		362A11A82DDF783400D6FED1 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 362A11A72DDF783400D6FED1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		362A11AA2DDF783400D6FED1 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 362A11A72DDF783400D6FED1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		3655E3CC2DEB4C1800D42B52 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		36D5132F2DDF9F1F00CF578D /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		36D513392DDF9F1F00CF578D /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		36D5133D2DDF9F1F00CF578D /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		36D513452DDF9F1F00CF578D /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36D5132C2DDF9F1F00CF578D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 36686FC42DBC1A0C003F4D65 /* Project object */;
+}
