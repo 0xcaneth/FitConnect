@@ -17,6 +17,7 @@ struct FitConnectUser: Identifiable, Codable {
     var isEmailVerified: Bool? 
     var role: String // "client", "dietitian", etc.
     var assignedDietitianId: String?
+    var expertId: String?
     var providerData: [[String: String]]? // Array of dictionaries for provider info
     var lastLoginAt: Timestamp? // Using Firestore Timestamp
     var bio: String?
@@ -41,6 +42,7 @@ struct FitConnectUser: Identifiable, Codable {
          subscription: SubscriptionStatus = .free,
          role: String = "client", // Default role
          assignedDietitianId: String? = nil,
+         expertId: String? = nil,
          providerData: [[String: String]]? = nil,
          lastLoginAt: Timestamp? = nil,
          bio: String? = "",
@@ -56,6 +58,7 @@ struct FitConnectUser: Identifiable, Codable {
         self.isEmailVerified = isEmailVerified
         self.role = role
         self.assignedDietitianId = assignedDietitianId
+        self.expertId = expertId
         self.providerData = providerData
         self.lastLoginAt = lastLoginAt
         self.bio = bio

@@ -9,8 +9,8 @@ struct ProfileView: View {
     @State private var userXP: Int = 0
     @State private var userBadges: [Badge] = []
     @State private var isLoadingProfile: Bool = true
+    @State private var showingExpertPanel = false
 
-    // Placeholder user data - replace with actual data from session or fetched
     private var userName: String {
         session.currentUser?.fullName ?? "User Name"
     }
@@ -34,7 +34,6 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Background
                 LinearGradient(
                     gradient: Gradient(colors: [Color(hex: "#0D0F14"), Color(hex: "#1A1B25")]),
                     startPoint: .top,
@@ -47,25 +46,16 @@ struct ProfileView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 24) {
-                            // Profile Header
                             profileHeaderView()
                             
-                            // XP & Level Card
                             xpLevelCard()
                             
-                            // Statistics Grid
                             statisticsGrid()
                             
-                            // Badges Section
                             badgesSection()
                             
-                            // Recent Activity
-                            recentActivitySection()
-                            
-                            // Settings
                             settingsSection()
                             
-                            // Logout Button
                             logoutButton()
                             
                             Spacer(minLength: 100)
@@ -81,12 +71,14 @@ struct ProfileView: View {
         .onAppear {
             loadProfileData()
         }
+        .sheet(isPresented: $showingExpertPanel) {
+            ExpertPanelView()
+        }
     }
     
     @ViewBuilder
     private func profileHeaderView() -> some View {
         VStack(spacing: 16) {
-            // Avatar with animated border
             ZStack {
                 Circle()
                     .fill(
@@ -136,7 +128,6 @@ struct ProfileView: View {
                 
                 Spacer()
                 
-                // Circular Progress
                 ZStack {
                     Circle()
                         .stroke(Color(hex: "#2A2E3B"), lineWidth: 8)
@@ -162,7 +153,6 @@ struct ProfileView: View {
                 }
             }
             
-            // Progress bar for next level
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Progress to Level \(userLevel + 1)")
@@ -239,7 +229,7 @@ struct ProfileView: View {
                 
                 StatCardView(
                     title: "Streak",
-                    value: "12", // Placeholder
+                    value: "12", 
                     icon: "flame.fill",
                     gradientColors: [Color(hex: "#F093FB"), Color(hex: "#F5576C")]
                 )
@@ -317,51 +307,15 @@ struct ProfileView: View {
     }
     
     @ViewBuilder
-    private func recentActivitySection() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Recent Activity")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Button("View All") {
-                    // TODO: Navigate to full activity view
-                }
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundColor(Color(hex: "#6E56E9"))
-            }
-            
-            VStack(spacing: 12) {
-                if userBadges.count > 0 {
-                    ForEach(userBadges.prefix(3)) { badge in
-                        ModernActivityRow(
-                            icon: badge.iconName ?? "star.fill",
-                            iconColor: Color(hex: "#22C55E"),
-                            title: "Badge Earned",
-                            subtitle: badge.badgeName,
-                            timestamp: badge.earnedAt.dateValue()
-                        )
-                    }
-                } else {
-                    Text("No recent activity")
-                        .font(.system(size: 16, design: .rounded))
-                        .foregroundColor(Color(hex: "#B0B3BA"))
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 20)
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
     private func settingsSection() -> some View {
         VStack(spacing: 1) {
             ModernSettingsRow(iconName: "person.fill", text: "Edit Profile", color: Color(hex: "#6E56E9")) { }
-            ModernSettingsRow(iconName: "slider.horizontal.3", text: "Preferences", color: Color(hex: "#22C55E")) { }
-            ModernSettingsRow(iconName: "shield.lefthalf.filled", text: "Privacy Policy", color: Color(hex: "#FF6B6B")) { }
-            ModernSettingsRow(iconName: "questionmark.circle.fill", text: "Help & Support", color: Color(hex: "#4ECDC4")) { }
+            ModernSettingsRow(iconName: "person.badge.plus", text: "My Expert", color: Color(hex: "#22C55E")) {
+                showingExpertPanel = true
+            }
+            ModernSettingsRow(iconName: "slider.horizontal.3", text: "Preferences", color: Color(hex: "#FF6B6B")) { }
+            ModernSettingsRow(iconName: "shield.lefthalf.filled", text: "Privacy Policy", color: Color(hex: "#4ECDC4")) { }
+            ModernSettingsRow(iconName: "questionmark.circle.fill", text: "Help & Support", color: Color(hex: "#F093FB")) { }
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -419,7 +373,6 @@ struct ProfileView: View {
         
         let db = Firestore.firestore()
         
-        // Load user XP
         db.collection("users").document(userId).getDocument { snapshot, error in
             DispatchQueue.main.async {
                 if let error = error {
@@ -434,7 +387,6 @@ struct ProfileView: View {
             }
         }
         
-        // Load user badges
         db.collection("users").document(userId).collection("badges")
             .order(by: "earnedAt", descending: true)
             .getDocuments { snapshot, error in
@@ -462,7 +414,6 @@ struct ProfileView: View {
     }
 }
 
-// Modern Components
 struct StatCardView: View {
     let title: String
     let value: String
