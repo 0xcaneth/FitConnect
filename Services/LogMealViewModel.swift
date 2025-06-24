@@ -26,7 +26,7 @@ class LogMealViewModel: ObservableObject {
         case mealName, calories, protein, fat, carbs
     }
     
-    private let db = Firestore.firestore()
+    private let mealService = MealService.shared
     
     var isFormValid: Bool {
         !mealName.trimmingCharacters(in: .whitespaces).isEmpty &&
@@ -85,27 +85,25 @@ class LogMealViewModel: ObservableObject {
             
             let finalDate = calendar.date(from: combinedComponents) ?? Date()
             
-            let meal = Meal(
-                mealName: mealName.trimmingCharacters(in: .whitespaces),
-                mealType: selectedMealType,
+            let nutrition = NutritionData(
                 calories: Int(calories) ?? 0,
                 protein: Double(protein) ?? 0,
                 fat: Double(fat) ?? 0,
                 carbs: Double(carbs) ?? 0,
+                fiber: 0.0,
+                sugars: 0.0,
+                sodium: 0.0
+            )
+            
+            let mealEntry = MealEntry(
+                mealName: mealName.trimmingCharacters(in: .whitespaces),
+                mealType: selectedMealType.rawValue,
+                nutrition: nutrition,
                 timestamp: finalDate,
                 userId: userId
             )
             
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd"
-            let dateString = dateFormatter.string(from: finalDate)
-            
-            try await db.collection("users")
-                .document(userId)
-                .collection("healthData")
-                .document(dateString)
-                .collection("meals")
-                .addDocument(from: meal)
+            try await mealService.saveMealEntry(mealEntry)
             
             // Show success animation
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {

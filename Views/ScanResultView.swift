@@ -56,9 +56,14 @@ struct ScanResultView: View {
         }
         .sheet(isPresented: $showingLogMealSheet) {
             LogMealSheetView(
-                detectedFood: detectedFoodName.isEmpty ? predictedLabel : detectedFoodName, 
+                detectedFood: detectedFoodName.isEmpty ? predictedLabel : detectedFoodName,
                 estimatedCalories: analysis?.calories ?? 0,
-                onDismiss: { showingLogMealSheet = false }
+                analysis: analysis,
+                onDismiss: { showingLogMealSheet = false },
+                onSave: {
+                    // Call the original onSave callback and dismiss
+                    onSave(selectedMealType)
+                }
             )
             .presentationDetents([.height(500), .large])
             .presentationDragIndicator(.visible)
@@ -347,36 +352,74 @@ struct ScanResultView: View {
     
     // MARK: - Action Button
     private var actionButtonView: some View {
-        Button {
+        VStack(spacing: 12) {
+            // Meal type selector
             if confidence >= 0.8 {
-                showingLogMealSheet = true
-            } else {
-                retryAnalysis()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Meal Type")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(FitConnectColors.textPrimary)
+                    
+                    HStack(spacing: 8) {
+                        ForEach(Meal.MealType.allCases, id: \.self) { mealType in
+                            Button {
+                                selectedMealType = mealType
+                            } label: {
+                                Text(mealType.rawValue)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(selectedMealType == mealType ? .white : FitConnectColors.textSecondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(
+                                                selectedMealType == mealType ?
+                                                FitConnectColors.accentCyan :
+                                                Color.clear
+                                            )
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(FitConnectColors.accentCyan.opacity(0.3), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
             }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: confidence >= 0.8 ? "plus.circle.fill" : "arrow.clockwise")
-                    .font(.system(size: 18, weight: .semibold))
-                
-                Text(confidence >= 0.8 ? "Log This Meal" : "Try Again")
-                    .font(.system(size: 18, weight: .semibold))
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                LinearGradient(
-                    colors: confidence >= 0.8 ? 
-                        [FitConnectColors.accentCyan, FitConnectColors.accentBlue] :
-                        [FitConnectColors.accentOrange, FitConnectColors.accentPink],
-                    startPoint: .leading,
-                    endPoint: .trailing
+            
+            Button {
+                if confidence >= 0.8 {
+                    showingLogMealSheet = true
+                } else {
+                    retryAnalysis()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: confidence >= 0.8 ? "plus.circle.fill" : "arrow.clockwise")
+                        .font(.system(size: 18, weight: .semibold))
+                    
+                    Text(confidence >= 0.8 ? "Log This Meal" : "Try Again")
+                        .font(.system(size: 18, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(
+                        colors: confidence >= 0.8 ? 
+                            [FitConnectColors.accentCyan, FitConnectColors.accentBlue] :
+                            [FitConnectColors.accentOrange, FitConnectColors.accentPink],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
-            )
-            .cornerRadius(16)
-            .shadow(color: (confidence >= 0.8 ? FitConnectColors.accentCyan : FitConnectColors.accentOrange).opacity(0.4), radius: 12, x: 0, y: 6)
+                .cornerRadius(16)
+                .shadow(color: (confidence >= 0.8 ? FitConnectColors.accentCyan : FitConnectColors.accentOrange).opacity(0.4), radius: 12, x: 0, y: 6)
+            }
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
     }
     
     // MARK: - Empty State

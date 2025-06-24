@@ -488,11 +488,11 @@ struct LogMealView: View {
         guard let userId = session.currentUserId,
               let food = selectedFood,
               let nutrition = currentNutrition else {
-            print("[LogMealView] ❌ Cannot save meal - missing required data")
+            print("[LogMealView] Cannot save meal - missing required data")
             return
         }
         
-        print("[LogMealView] 💾 Saving meal: \(food.displayName), Portion: \(selectedPortionIndex + 1), Calories: \(nutrition.calories)")
+        print("[LogMealView] Saving meal: \(food.displayName), Portion: \(selectedPortionIndex + 1), Calories: \(nutrition.calories)")
         
         let nutritionData = NutritionData(
             calories: nutrition.calories,
@@ -509,7 +509,7 @@ struct LogMealView: View {
             foodLabel: food.label,
             mealType: selectedMealType.rawValue,
             portionIndex: selectedPortionIndex,
-            portionWeight: nutrition.weight,
+            portionWeight: Double(nutrition.weight),
             nutrition: nutritionData,
             timestamp: selectedDate,
             userId: userId
@@ -519,7 +519,7 @@ struct LogMealView: View {
             do {
                 try await MealService.shared.saveMealEntry(mealEntry)
                 DispatchQueue.main.async {
-                    print("[LogMealView] ✅ Meal saved successfully")
+                    print("[LogMealView] Meal saved successfully")
                     self.showToast("Meal logged successfully")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         self.presentationMode.wrappedValue.dismiss()
@@ -527,7 +527,7 @@ struct LogMealView: View {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    print("[LogMealView] ❌ Error saving meal: \(error)")
+                    print("[LogMealView] Error saving meal: \(error)")
                     self.showToast("Error saving meal")
                 }
             }

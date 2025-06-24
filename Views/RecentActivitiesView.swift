@@ -1,14 +1,12 @@
 import SwiftUI
 import FirebaseAuth
-import Combine
 
 // MARK: - Recent Activities View
 // Displays the 5 most recent meal entries in a card format matching the dark theme
-@available(iOS 16.0, *)
 struct RecentActivitiesView: View {
     
     // MARK: - Properties
-    @StateObject private var viewModel = RecentActivitiesViewModel()
+    @StateObject private var mealService = MealService.shared
     @State private var showingAllActivities = false
     
     // MARK: - Body
@@ -18,10 +16,10 @@ struct RecentActivitiesView: View {
             contentView
         }
         .onAppear {
-            viewModel.fetchRecentMeals()
+            mealService.startListening()
         }
         .refreshable {
-            viewModel.refresh()
+            mealService.startListening()
         }
         .sheet(isPresented: $showingAllActivities) {
             // Placeholder for full activities screen
@@ -32,16 +30,25 @@ struct RecentActivitiesView: View {
     // MARK: - Content View
     private var contentView: some View {
         Group {
-            if viewModel.isLoading {
+            if mealService.isLoading {
                 loadingView
-            } else if let errorMessage = viewModel.errorMessage {
+            } else if let errorMessage = mealService.error {
                 errorView(message: errorMessage)
-            } else if viewModel.hasRecentMeals {
+            } else if hasRecentMeals {
                 mealsListView
             } else {
                 emptyStateView
             }
         }
+    }
+    
+    // MARK: - Computed Properties
+    private var hasRecentMeals: Bool {
+        return !mealService.recentMeals.isEmpty
+    }
+    
+    private var recentMealsToShow: [MealEntry] {
+        return Array(mealService.recentMeals.prefix(5))
     }
     
     // MARK: - Loading View
@@ -81,8 +88,7 @@ struct RecentActivitiesView: View {
                 .lineLimit(3)
             
             Button("Try Again") {
-                viewModel.clearError()
-                viewModel.refresh()
+                mealService.startListening()
             }
             .font(.system(size: 14, weight: .medium))
             .foregroundColor(.white)
@@ -160,7 +166,7 @@ struct RecentActivitiesView: View {
     // MARK: - Meals List View
     private var mealsListView: some View {
         VStack(spacing: 8) {
-            ForEach(viewModel.recentMeals) { meal in
+            ForEach(recentMealsToShow) { meal in
                 RecentMealRowView(meal: meal)
             }
         }

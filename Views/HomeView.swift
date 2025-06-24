@@ -59,7 +59,7 @@ struct HomeView: View {
                 // Floating Action Button
                 HomeFloatingActionButtonView(
                     isExpanded: $isFABExpanded,
-                    onLogMeal: { showingLogMealSheet = true },
+                    onLogMeal: { showingLogMeal = true },
                     onStartWorkout: { /* TODO: Start workout */ }
                 )
             }
@@ -70,6 +70,7 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingLogMeal) {
             LogMealView()
+                .environmentObject(session)
         }
         .sheet(isPresented: $showingScanMeal) {
             ScanMealView()
@@ -283,7 +284,7 @@ struct HomeView: View {
                     title: "Log Meal",
                     color: Color(hex: "#00E5FF") ?? .cyan
                 ) {
-                    showingLogMealSheet = true
+                    showingLogMeal = true
                 }
                 
                 HomeQuickActionCard(

@@ -21,73 +21,160 @@ class MealService: ObservableObject {
     }()
     
     init() {
-        print("✅ MealService initialized - Firestore already configured at app startup")
+        print("MealService initialized - Firestore already configured at app startup")
     }
     
     func startListening() {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else { 
+            error = "User not authenticated"
+            return 
+        }
         
-        // Listen to today's meals using unified path structure
+        // Clear previous error
+        error = nil
+        isLoading = true
+        
+        // Stop existing listeners
+        stopListening()
+        
+        // Listen to today's meals using specific path
         let today = Calendar.current.startOfDay(for: Date())
         let todayString = dateFormatter.string(from: today)
         
         let todayListener = db.collection("users")
             .document(userId)
-            .collection("healthdata")
+            .collection("healthData")
             .document(todayString)
             .collection("meals")
             .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    self?.error = error.localizedDescription
-                    return
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("[MealService] Recent meals error for \(todayString): \(error.localizedDescription)")
+                        self?.error = error.localizedDescription
+                        self?.isLoading = false
+                        return
+                    }
+                    
+                    self?.todayMeals = snapshot?.documents.compactMap { doc in
+                        var meal = try? doc.data(as: MealEntry.self)
+                        meal?.id = doc.documentID
+                        return meal
+                    } ?? []
+                    
+                    print("[MealService] Loaded \(self?.todayMeals.count ?? 0) meals for today")
+                    self?.isLoading = false
                 }
-                
-                self?.todayMeals = snapshot?.documents.compactMap { doc in
-                    try? doc.data(as: MealEntry.self)
-                } ?? []
-                
-                print("[MealService] ✅ Loaded \(self?.todayMeals.count ?? 0) meals for today")
             }
         
-        // Listen to recent meals across all dates using collectionGroup
-        let recentListener = db.collectionGroup("meals")
-            .whereField("userId", isEqualTo: userId)
-            .order(by: "timestamp", descending: true)
-            .limit(to: 10)
-            .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    self?.error = error.localizedDescription
-                    return
-                }
-                
-                self?.recentMeals = snapshot?.documents.compactMap { doc in
-                    var meal = try? doc.data(as: MealEntry.self)
-                    meal?.id = doc.documentID
-                    return meal
-                } ?? []
-                
-                print("[MealService] ✅ Loaded \(self?.recentMeals.count ?? 0) recent meals")
-            }
+        fetchRecentMealsFromDates(userId: userId)
         
-        // Listen to weekly meals for stats
-        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: today)!
-        let weeklyListener = db.collectionGroup("meals")
-            .whereField("userId", isEqualTo: userId)
-            .whereField("timestamp", isGreaterThanOrEqualTo: Timestamp(date: weekAgo))
-            .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    self?.error = error.localizedDescription
-                    return
-                }
-                
-                self?.weeklyMeals = snapshot?.documents.compactMap { doc in
-                    try? doc.data(as: MealEntry.self)
-                } ?? []
-                
-                print("[MealService] ✅ Loaded \(self?.weeklyMeals.count ?? 0) weekly meals")
-            }
+        fetchWeeklyMealsFromDates(userId: userId)
         
-        listeners = [todayListener, recentListener, weeklyListener]
+        listeners = [todayListener]
+    }
+    
+    private func fetchRecentMealsFromDates(userId: String) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dispatchGroup = DispatchGroup()
+        let queue = DispatchQueue(label: "meal-fetch-queue", attributes: .concurrent)
+        
+        // Use a thread-safe array to collect meals
+        var tempMeals: [MealEntry] = []
+        let lock = NSLock()
+        
+        // Check last 7 days for recent meals
+        for i in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { continue }
+            let dateString = dateFormatter.string(from: date)
+            
+            dispatchGroup.enter()
+            
+            db.collection("users")
+                .document(userId)
+                .collection("healthData")
+                .document(dateString)
+                .collection("meals")
+                .order(by: "timestamp", descending: true)
+                .getDocuments { snapshot, error in
+                    defer { dispatchGroup.leave() }
+                    
+                    if let error = error {
+                        print("[MealService] Recent meals error for \(dateString): \(error.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else { return }
+                    
+                    let dayMeals: [MealEntry] = documents.compactMap { doc in
+                        var meal = try? doc.data(as: MealEntry.self)
+                        meal?.id = doc.documentID
+                        return meal
+                    }
+                    
+                    // Thread-safe append
+                    lock.lock()
+                    tempMeals.append(contentsOf: dayMeals)
+                    lock.unlock()
+                }
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            // Sort all meals by timestamp and take top 10
+            self.recentMeals = Array(tempMeals
+                .sorted { $0.timestamp > $1.timestamp }
+                .prefix(10))
+            
+            print("[MealService] Loaded \(self.recentMeals.count) recent meals from specific dates")
+        }
+    }
+    
+    private func fetchWeeklyMealsFromDates(userId: String) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dispatchGroup = DispatchGroup()
+        
+        // Use a thread-safe array to collect meals
+        var tempMeals: [MealEntry] = []
+        let lock = NSLock()
+        
+        // Check last 7 days for weekly stats
+        for i in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { continue }
+            let dateString = dateFormatter.string(from: date)
+            
+            dispatchGroup.enter()
+            
+            db.collection("users")
+                .document(userId)
+                .collection("healthData")
+                .document(dateString)
+                .collection("meals")
+                .getDocuments { snapshot, error in
+                    defer { dispatchGroup.leave() }
+                    
+                    if let error = error {
+                        print("[MealService] Weekly meals error for \(dateString): \(error.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else { return }
+                    
+                    let dayMeals: [MealEntry] = documents.compactMap { doc in
+                        try? doc.data(as: MealEntry.self)
+                    }
+                    
+                    // Thread-safe append
+                    lock.lock()
+                    tempMeals.append(contentsOf: dayMeals)
+                    lock.unlock()
+                }
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            self.weeklyMeals = tempMeals
+            print("[MealService] Loaded \(self.weeklyMeals.count) weekly meals from specific dates")
+        }
     }
     
     func stopListening() {
@@ -95,9 +182,6 @@ class MealService: ObservableObject {
         listeners.removeAll()
     }
     
-    // MARK: - Save Methods
-    
-    /// Save MealEntry to unified path structure
     func saveMealEntry(_ mealEntry: MealEntry) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "MealService", code: 1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
@@ -110,22 +194,23 @@ class MealService: ObservableObject {
         
         let docRef = db.collection("users")
             .document(userId)
-            .collection("healthdata")
+            .collection("healthData")
             .document(dateString)
             .collection("meals")
         
         if let mealId = mealEntry.id {
-            // Update existing meal
             try await docRef.document(mealId).setData(from: updatedEntry)
-            print("[MealService] ✅ Updated meal: \(mealEntry.mealName)")
+            print("[MealService] Updated meal: \(mealEntry.mealName)")
         } else {
-            // Create new meal
             try await docRef.addDocument(from: updatedEntry)
-            print("[MealService] ✅ Saved new meal: \(mealEntry.mealName)")
+            print("[MealService] Saved new meal: \(mealEntry.mealName)")
+        }
+        
+        if let currentUserId = Auth.auth().currentUser?.uid {
+            fetchRecentMealsFromDates(userId: currentUserId)
         }
     }
     
-    /// Legacy method - converts old Meal model to MealEntry and saves
     func saveMeal(_ meal: Meal) async throws {
         let nutrition = NutritionData(
             calories: meal.calories,
@@ -147,7 +232,6 @@ class MealService: ObservableObject {
         try await saveMealEntry(mealEntry)
     }
     
-    /// Save meal from analysis (for scan meal functionality)
     func saveMealFromAnalysis(
         mealName: String,
         mealType: String,
@@ -174,8 +258,6 @@ class MealService: ObservableObject {
         try await saveMealEntry(mealEntry)
     }
     
-    // MARK: - Computed Properties
-    
     var todayCalories: Int {
         todayMeals.reduce(0) { $0 + $1.nutrition.calories }
     }
@@ -196,8 +278,6 @@ class MealService: ObservableObject {
         todayMeals.reduce(0) { $0 + $1.nutrition.fat }
     }
     
-    // MARK: - Fetch Methods
-    
     func fetchMealsForDate(_ date: Date) async throws -> [MealEntry] {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "MealService", code: 1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
@@ -207,7 +287,7 @@ class MealService: ObservableObject {
         
         let snapshot = try await db.collection("users")
             .document(userId)
-            .collection("healthdata")
+            .collection("healthData")
             .document(dateString)
             .collection("meals")
             .order(by: "timestamp", descending: false)
@@ -229,12 +309,16 @@ class MealService: ObservableObject {
         
         try await db.collection("users")
             .document(userId)
-            .collection("healthdata")
+            .collection("healthData")
             .document(dateString)
             .collection("meals")
             .document(mealId)
             .delete()
         
-        print("[MealService] ✅ Deleted meal: \(mealId)")
+        print("[MealService] Deleted meal: \(mealId)")
+        
+        if let currentUserId = Auth.auth().currentUser?.uid {
+            fetchRecentMealsFromDates(userId: currentUserId)
+        }
     }
 }

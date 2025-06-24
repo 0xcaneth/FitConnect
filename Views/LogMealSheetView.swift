@@ -1,248 +1,192 @@
 import SwiftUI
-import FirebaseFirestore
-///can
-/// Modern pull-up sheet for logging meals with enhanced UX, CSV-based nutrition lookup, and improved data flow
-/// What changed: Complete redesign with pull-up sheet UI, portion slider, nutrition card display, and CSV integration
+import FirebaseAuth
+
 @available(iOS 16.0, *)
 struct LogMealSheetView: View {
     let detectedFood: String
     let estimatedCalories: Int
+    let analysis: MealAnalysis?
     let onDismiss: () -> Void
+    let onSave: () -> Void
     
-    @EnvironmentObject var session: SessionStore
-    @StateObject private var nutritionManager = NutritionDataManager.shared
+    @State private var selectedMealType: Meal.MealType
+    @State private var selectedPortionSize: PortionSize = .medium
+    @State private var isSaving = false
+    @State private var showSuccess = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
-    // MARK: - State Properties
-    @State private var selectedFood: FoodItem?
-    @State private var searchText: String = ""
-    @State private var portionSlider: Double = 2.0 // Default to middle portion (Size 3 of 5)
-    @State private var selectedMealType: Meal.MealType = .breakfast
-    @State private var selectedDate = Date()
-    @State private var showingDatePicker = false
-    @State private var showingFoodPicker = false
-    @State private var showingSuccessToast = false
-    @State private var isLoading = false
+    private let mealService = MealService.shared
     
-    // MARK: - Computed Properties
-    private var currentPortionIndex: Int {
-        Int(portionSlider.rounded())
-    }
-    
-    private var currentNutrition: NutritionEntry? {
-        guard let food = selectedFood else { return nil }
-        return nutritionManager.getNutrition(for: food.label, portionIndex: currentPortionIndex)
-    }
-    
-    private var canSave: Bool {
-        selectedFood != nil && currentNutrition != nil
-    }
-    
-    private var portionText: String {
-        guard let food = selectedFood, currentPortionIndex < food.portions.count else {
-            return "Size 1 of 5"
+    enum PortionSize: String, CaseIterable {
+        case small = "Small"
+        case medium = "Medium" 
+        case large = "Large"
+        case extraLarge = "Extra Large"
+        
+        var multiplier: Double {
+            switch self {
+            case .small: return 0.7
+            case .medium: return 1.0
+            case .large: return 1.3
+            case .extraLarge: return 1.6
+            }
         }
-        return "Size \(currentPortionIndex + 1) of \(food.portions.count)"
+        
+        var icon: String {
+            switch self {
+            case .small: return "circle.fill"
+            case .medium: return "circle.fill"
+            case .large: return "circle.fill"
+            case .extraLarge: return "circle.fill"
+            }
+        }
+        
+        var description: String {
+            switch self {
+            case .small: return "70% of standard portion"
+            case .medium: return "Standard portion size"
+            case .large: return "130% of standard portion"
+            case .extraLarge: return "160% of standard portion"
+            }
+        }
+    }
+    
+    // Auto-detect meal type based on current time
+    private var autoDetectedMealType: Meal.MealType {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11: return .breakfast
+        case 11..<16: return .lunch
+        case 16..<22: return .dinner
+        default: return .snack
+        }
+    }
+    
+    // Calculate adjusted nutrition based on portion size
+    private var adjustedNutrition: NutritionData {
+        guard let analysis = analysis else {
+            return NutritionData(
+                calories: Int(Double(estimatedCalories) * selectedPortionSize.multiplier),
+                protein: 0,
+                fat: 0,
+                carbs: 0
+            )
+        }
+        
+        let multiplier = selectedPortionSize.multiplier
+        return NutritionData(
+            calories: Int(Double(analysis.calories) * multiplier),
+            protein: analysis.protein * multiplier,
+            fat: analysis.fat * multiplier,
+            carbs: analysis.carbs * multiplier,
+            fiber: analysis.fiber * multiplier,
+            sugars: analysis.sugars * multiplier,
+            sodium: analysis.sodium * multiplier
+        )
+    }
+    
+    init(detectedFood: String, estimatedCalories: Int, analysis: MealAnalysis? = nil, onDismiss: @escaping () -> Void, onSave: @escaping () -> Void = {}) {
+        self.detectedFood = detectedFood
+        self.estimatedCalories = estimatedCalories
+        self.analysis = analysis
+        self.onDismiss = onDismiss
+        self.onSave = onSave
+        
+        // Auto-select meal type based on current time
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11: 
+            self._selectedMealType = State(initialValue: .breakfast)
+        case 11..<16: 
+            self._selectedMealType = State(initialValue: .lunch)
+        case 16..<22: 
+            self._selectedMealType = State(initialValue: .dinner)
+        default: 
+            self._selectedMealType = State(initialValue: .snack)
+        }
     }
     
     var body: some View {
         NavigationView {
             ZStack {
-                FitConnectColors.backgroundDark.ignoresSafeArea()
+                Constants.Colors.backgroundDark.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    // Grabber bar
-                    grabberBar
-                    
-                    // Content
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 24) {
-                            // Header
-                            headerSection
-                            
-                            // Food selection
-                            foodSelectionSection
-                            
-                            // Portion slider (shown when food is selected)
-                            if selectedFood != nil {
-                                portionSliderSection
-                            }
-                            
-                            // Meal type selection
-                            mealTypeSection
-                            
-                            // Nutrition information cards
-                            if let nutrition = currentNutrition {
-                                nutritionInfoSection(nutrition)
-                            }
-                            
-                            // Date selection
-                            dateSelectionSection
-                            
-                            Spacer(minLength: 100)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header with detected food
+                        headerView
+                        
+                        // Meal type selection
+                        mealTypeSection
+                        
+                        // Portion size selection
+                        portionSizeSection
+                        
+                        // Nutrition preview
+                        nutritionPreviewSection
+                        
+                        // Save button
+                        saveButtonSection
+                        
+                        Spacer(minLength: 20)
                     }
-                    
-                    // Bottom save button
-                    bottomActionSection
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
                 
-                // Success toast
-                if showingSuccessToast {
-                    successToastView
+                // Success overlay
+                if showSuccess {
+                    successOverlay
                 }
             }
-        }
-        .onAppear {
-            setupInitialState()
-        }
-        .sheet(isPresented: $showingFoodPicker) {
-            foodPickerSheet
-        }
-        .sheet(isPresented: $showingDatePicker) {
-            datePickerSheet
-        }
-    }
-    
-    // MARK: - Grabber Bar
-    private var grabberBar: some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Color.white.opacity(0.3))
-            .frame(width: 36, height: 6)
-            .padding(.top, 8)
-    }
-    
-    // MARK: - Header Section
-    private var headerSection: some View {
-        HStack {
-            Button {
-                onDismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(FitConnectColors.textSecondary)
-            }
-            
-            Spacer()
-            
-            Text("Log Meal")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(FitConnectColors.textPrimary)
-            
-            Spacer()
-            
-            // Placeholder for symmetry
-            Color.clear
-                .frame(width: 24, height: 24)
-        }
-    }
-    
-    // MARK: - Food Selection Section
-    private var foodSelectionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Select Food")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(FitConnectColors.textPrimary)
-            
-            Button {
-                showingFoodPicker = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
-                    
-                    if let selectedFood = selectedFood {
-                        Text(selectedFood.displayName)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(FitConnectColors.textPrimary)
-                    } else {
-                        Text("Search for food...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(FitConnectColors.textSecondary)
+            .navigationTitle("Log Meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onDismiss()
                     }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
+                    .foregroundColor(Constants.Colors.textSecondary)
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(FitConnectColors.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    // MARK: - Header View
+    private var headerView: some View {
+        VStack(spacing: 12) {
+            // Food emoji/icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "3CD76B"), Color(hex: "26C6DA")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                )
-            }
-        }
-    }
-    
-    // MARK: - Portion Slider Section
-    private var portionSliderSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Portion Size")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(FitConnectColors.textPrimary)
-                
-                Spacer()
-                
-                Text(portionText)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(FitConnectColors.accentPurple)
-            }
-            
-            if let food = selectedFood {
-                VStack(spacing: 16) {
-                    // Custom slider
-                    SliderView(
-                        value: $portionSlider,
-                        range: 0...Double(food.portions.count - 1),
-                        step: 1.0,
-                        accentColor: FitConnectColors.accentPurple
                     )
-                    
-                    // Weight and calorie display
-                    HStack {
-                        Text("100g")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(FitConnectColors.textSecondary)
-                        
-                        Spacer()
-                        
-                        if let nutrition = currentNutrition {
-                            VStack(spacing: 2) {
-                                Text("\(nutrition.weight)g")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(FitConnectColors.textPrimary)
-                                
-                                Text("\(nutrition.calories) cal")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(FitConnectColors.textSecondary)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Text("300g")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(FitConnectColors.textSecondary)
-                    }
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(FitConnectColors.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
+                    .frame(width: 80, height: 80)
+                
+                Text(getFoodEmoji(for: detectedFood))
+                    .font(.system(size: 40))
+            }
+            
+            VStack(spacing: 4) {
+                Text(detectedFood.isEmpty ? "Detected Meal" : detectedFood)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                
+                Text("Ready to log this meal to your diary")
+                    .font(.system(size: 16))
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -250,21 +194,32 @@ struct LogMealSheetView: View {
     // MARK: - Meal Type Section
     private var mealTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Meal Type")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(FitConnectColors.textPrimary)
+            HStack {
+                Text("Meal Type")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Text("Auto-detected")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "3CD76B"))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color(hex: "3CD76B").opacity(0.2))
+                    )
+            }
             
             HStack(spacing: 8) {
                 ForEach(Meal.MealType.allCases, id: \.self) { mealType in
                     Button {
                         selectedMealType = mealType
-                        // Haptic feedback
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                        impactFeedback.impactOccurred()
                     } label: {
                         Text(mealType.rawValue)
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(selectedMealType == mealType ? .white : FitConnectColors.textSecondary)
+                            .foregroundColor(selectedMealType == mealType ? .white : .gray)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(
@@ -272,7 +227,7 @@ struct LogMealSheetView: View {
                                     .fill(
                                         selectedMealType == mealType ?
                                         LinearGradient(
-                                            colors: [FitConnectColors.accentPink, FitConnectColors.accentPurple],
+                                            colors: [Color(hex: "3CD76B"), Color(hex: "26C6DA")],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         ) :
@@ -284,523 +239,360 @@ struct LogMealSheetView: View {
                                     )
                                     .overlay(
                                         Capsule()
-                                            .stroke(selectedMealType == mealType ? Color.clear : Color.white.opacity(0.3), lineWidth: 1)
+                                            .stroke(.gray.opacity(0.3), lineWidth: 1)
                                     )
                             )
                     }
                 }
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Constants.Colors.cardBackground)
+        )
     }
     
-    // MARK: - Nutrition Information Section
-    private func nutritionInfoSection(_ nutrition: NutritionEntry) -> some View {
+    // MARK: - Portion Size Section
+    private var portionSizeSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Nutrition Information")
+            Text("Portion Size")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(FitConnectColors.textPrimary)
-            
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                LogMealNutritionCard(
-                    icon: "flame.fill",
-                    title: "Calories",
-                    value: "\(nutrition.calories)",
-                    unit: "kcal",
-                    color: FitConnectColors.accentOrange
-                )
-                
-                LogMealNutritionCard(
-                    icon: "p.circle.fill",
-                    title: "Protein",
-                    value: String(format: "%.1f", nutrition.protein),
-                    unit: "g", 
-                    color: FitConnectColors.accentGreen
-                )
-                
-                LogMealNutritionCard(
-                    icon: "f.circle.fill",
-                    title: "Fats",
-                    value: String(format: "%.1f", nutrition.fats),
-                    unit: "g",
-                    color: FitConnectColors.accentOrange
-                )
-                
-                LogMealNutritionCard(
-                    icon: "c.circle.fill",
-                    title: "Carbs",
-                    value: String(format: "%.1f", nutrition.carbohydrates),
-                    unit: "g",
-                    color: FitConnectColors.accentBlue
-                )
-                
-                LogMealNutritionCard(
-                    icon: "leaf.fill",
-                    title: "Fiber",
-                    value: String(format: "%.1f", nutrition.fiber),
-                    unit: "g",
-                    color: FitConnectColors.accentGreen
-                )
-                
-                LogMealNutritionCard(
-                    icon: "s.circle.fill",
-                    title: "Sugars",
-                    value: String(format: "%.1f", nutrition.sugars),
-                    unit: "g",
-                    color: FitConnectColors.accentPink
-                )
-            }
-            
-            // Sodium (full width)
-            LogMealNutritionCard(
-                icon: "n.circle.fill",
-                title: "Sodium",
-                value: String(format: "%.0f", nutrition.sodium),
-                unit: "mg",
-                color: FitConnectColors.accentPurple
-            )
-        }
-    }
-    
-    // MARK: - Date Selection Section
-    private var dateSelectionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("When Did You Eat This?")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(FitConnectColors.textPrimary)
-            
-            Button {
-                showingDatePicker = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
-                    
-                    Text(formatDate(selectedDate))
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(FitConnectColors.textPrimary)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(FitConnectColors.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-            }
-        }
-    }
-    
-    // MARK: - Bottom Action Section
-    private var bottomActionSection: some View {
-        VStack(spacing: 0) {
-            Divider()
-                .background(Color.white.opacity(0.2))
-            
-            Button {
-                saveMeal()
-            } label: {
-                HStack(spacing: 8) {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    
-                    Text(isLoading ? "Saving..." : "Save")
-                        .font(.system(size: 18, weight: .semibold))
-                }
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: canSave ? 
-                            [FitConnectColors.accentGreen, FitConnectColors.accentCyan] :
-                            [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(12)
-                .shadow(color: canSave ? FitConnectColors.accentGreen.opacity(0.4) : Color.clear, radius: 8, x: 0, y: 4)
-            }
-            .disabled(!canSave || isLoading)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-        .background(FitConnectColors.backgroundDark)
-    }
-    
-    // MARK: - Success Toast
-    private var successToastView: some View {
-        VStack {
-            Spacer()
             
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(FitConnectColors.accentGreen)
-                
-                Text("Meal logged successfully!")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
-                
-                Spacer()
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.8))
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                    )
-            )
-            .padding(.horizontal, 20)
-            .padding(.bottom, 100)
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-    
-    // MARK: - Food Picker Sheet
-    private var foodPickerSheet: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Search bar
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
-                    
-                    TextField("Search foods...", text: $searchText)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(FitConnectColors.textPrimary)
-                        .textFieldStyle(PlainTextFieldStyle())
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(FitConnectColors.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                
-                // Food list
-                List {
-                    ForEach(nutritionManager.searchFoods(searchText)) { food in
-                        Button {
-                            selectedFood = food
-                            portionSlider = min(2.0, Double(food.portions.count - 1))
-                            showingFoodPicker = false
-                            
-                            print(" Selected food: \(food.displayName) with \(food.portions.count) portions")
-                        } label: {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(food.displayName)
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundColor(FitConnectColors.textPrimary)
-                                    
-                                    Text("\(food.portions.count) portion sizes")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(FitConnectColors.textSecondary)
-                                }
-                                
-                                Spacer()
-                                
-                                if selectedFood?.id == food.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(FitConnectColors.accentGreen)
+            VStack(spacing: 12) {
+                ForEach(PortionSize.allCases, id: \.self) { size in
+                    Button {
+                        selectedPortionSize = size
+                    } label: {
+                        HStack(spacing: 16) {
+                            // Size indicator circles
+                            HStack(spacing: 4) {
+                                ForEach(0..<4) { index in
+                                    Circle()
+                                        .fill(index < getCircleCount(for: size) ? Color(hex: "3CD76B") : Color.gray.opacity(0.3))
+                                        .frame(width: getCircleSize(for: size, index: index), height: getCircleSize(for: size, index: index))
                                 }
                             }
-                            .padding(.vertical, 8)
+                            .frame(width: 60, alignment: .leading)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(size.rawValue)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                
+                                Text(size.description)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(adjustedNutrition.calories)")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(Color(hex: "3CD76B"))
+                                
+                                Text("kcal")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            // Selection indicator
+                            Circle()
+                                .fill(selectedPortionSize == size ? Color(hex: "3CD76B") : Color.clear)
+                                .overlay(
+                                    Circle()
+                                        .stroke(.gray.opacity(0.3), lineWidth: 2)
+                                )
+                                .frame(width: 20, height: 20)
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selectedPortionSize == size ? Constants.Colors.cardBackground : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(
+                                            selectedPortionSize == size ? 
+                                            Color(hex: "3CD76B").opacity(0.5) : 
+                                            Color.gray.opacity(0.2), 
+                                            lineWidth: 1
+                                        )
+                                )
+                        )
                     }
-                }
-                .listStyle(PlainListStyle())
-                .background(FitConnectColors.backgroundDark)
-            }
-            .background(FitConnectColors.backgroundDark)
-            .navigationTitle("Choose Food")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
-                        showingFoodPicker = false
-                    }
-                    .foregroundColor(FitConnectColors.accentPink)
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-    
-    // MARK: - Date Picker Sheet
-    private var datePickerSheet: some View {
-        NavigationView {
-            VStack {
-                DatePicker("Select Date", selection: $selectedDate, displayedComponents: [.date])
-                    .datePickerStyle(WheelDatePickerStyle())
-                    .labelsHidden()
-                
-                Spacer()
-            }
-            .padding()
-            .background(FitConnectColors.backgroundDark)
-            .navigationTitle("When Did You Eat This?")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        showingDatePicker = false
-                    }
-                    .foregroundColor(FitConnectColors.accentGreen)
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-    
-    // MARK: - Helper Methods
-    private func setupInitialState() {
-        // Set meal type based on current time
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5...10:
-            selectedMealType = .breakfast
-        case 11...15:
-            selectedMealType = .lunch
-        case 16...21:
-            selectedMealType = .dinner
-        default:
-            selectedMealType = .snack
-        }
-        
-        // Pre-populate with detected food if available
-        if !detectedFood.isEmpty {
-            let searchTerms = detectedFood.lowercased().split(separator: " ")
-            let matchingFoods = nutritionManager.searchFoods(detectedFood)
-            
-            // Try exact match first
-            if let exactMatch = matchingFoods.first(where: { 
-                $0.displayName.lowercased() == detectedFood.lowercased() 
-            }) {
-                selectedFood = exactMatch
-                portionSlider = min(2.0, Double(exactMatch.portions.count - 1))
-                print(" Exact match found: \(exactMatch.displayName)")
-            }
-            // Try partial match with main search terms
-            else if let partialMatch = matchingFoods.first(where: { food in
-                searchTerms.contains { term in
-                    food.displayName.lowercased().contains(term) || food.label.lowercased().contains(term)
-                }
-            }) {
-                selectedFood = partialMatch
-                portionSlider = min(2.0, Double(partialMatch.portions.count - 1))
-                print(" Partial match found: \(partialMatch.displayName) for '\(detectedFood)'")
-            }
-            // Fallback to first result
-            else if let firstMatch = matchingFoods.first {
-                selectedFood = firstMatch
-                portionSlider = min(2.0, Double(firstMatch.portions.count - 1))
-                print(" Fallback match: \(firstMatch.displayName) for '\(detectedFood)'")
-            }
-            else {
-                print(" No matching food found for '\(detectedFood)'")
-            }
-        }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        
-        if Calendar.current.isDateInToday(date) {
-            return "Today"
-        } else if Calendar.current.isDateInYesterday(date) {
-            return "Yesterday"
-        } else {
-            formatter.dateStyle = .medium
-            return formatter.string(from: date)
-        }
-    }
-    
-    private func saveMeal() {
-        guard let userId = session.currentUserId,
-              let food = selectedFood,
-              let nutrition = currentNutrition else {
-            print(" Cannot save meal - missing required data")
-            return
-        }
-        
-        isLoading = true
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateString = dateFormatter.string(from: selectedDate)
-        
-        let mealData: [String: Any] = [
-            "mealName": food.displayName,
-            "foodLabel": food.label,
-            "mealType": selectedMealType.rawValue,
-            "portionIndex": currentPortionIndex,
-            "portionWeight": nutrition.weight,
-            "calories": nutrition.calories,
-            "protein": nutrition.protein,
-            "fat": nutrition.fats,
-            "carbs": nutrition.carbohydrates,
-            "fiber": nutrition.fiber,
-            "sugars": nutrition.sugars,
-            "sodium": nutrition.sodium,
-            "timestamp": Timestamp(date: selectedDate),
-            "dateString": dateString
-        ]
-        
-        print("Logged meal: \(food.displayName), \(nutrition.weight)g → {calories: \(nutrition.calories), protein: \(nutrition.protein), fat: \(nutrition.fats), carbs: \(nutrition.carbohydrates)}")
-        
-        Firestore.firestore()
-            .collection("users")
-            .document(userId)
-            .collection("healthData")
-            .document(dateString)
-            .collection("meals")
-            .addDocument(data: mealData) { error in
-                DispatchQueue.main.async {
-                    isLoading = false
-                    
-                    if let error = error {
-                        print("Error saving meal: \(error)")
-                    } else {
-                        print("Meal saved successfully")
-                        
-                        // Show success toast
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            showingSuccessToast = true
-                        }
-                        
-                        // Haptic feedback
-                        let notificationFeedback = UINotificationFeedbackGenerator()
-                        notificationFeedback.notificationOccurred(.success)
-                        
-                        // Auto-dismiss after success
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            onDismiss()
-                        }
-                    }
-                }
-            }
-    }
-}
-
-// MARK: - Nutrition Card Component
-struct LogMealNutritionCard: View { 
-    let icon: String
-    let title: String
-    let value: String
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundColor(color)
-                .frame(width: 24, height: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(FitConnectColors.textSecondary)
-                
-                HStack(spacing: 4) {
-                    Text(value)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(FitConnectColors.textPrimary)
-                    
-                    Text(unit)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(FitConnectColors.textSecondary)
                 }
             }
         }
         .padding(16)
         .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Constants.Colors.cardBackground)
+        )
+    }
+    
+    // MARK: - Nutrition Preview Section
+    private var nutritionPreviewSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Nutrition Summary")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+            
+            let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
+            
+            LazyVGrid(columns: columns, spacing: 12) {
+                NutritionPreviewCard(
+                    icon: "flame.fill",
+                    label: "Calories",
+                    value: "\(adjustedNutrition.calories)",
+                    unit: "kcal",
+                    color: Color(hex: "FF8E3C")
+                )
+                
+                NutritionPreviewCard(
+                    icon: "bolt.fill",
+                    label: "Protein",
+                    value: String(format: "%.1f", adjustedNutrition.protein),
+                    unit: "g",
+                    color: Color(hex: "3CD76B")
+                )
+                
+                NutritionPreviewCard(
+                    icon: "drop.fill",
+                    label: "Fat",
+                    value: String(format: "%.1f", adjustedNutrition.fat),
+                    unit: "g",
+                    color: Color(hex: "FFD700")
+                )
+                
+                NutritionPreviewCard(
+                    icon: "leaf.arrow.triangle.circlepath",
+                    label: "Carbs",
+                    value: String(format: "%.1f", adjustedNutrition.carbs),
+                    unit: "g",
+                    color: Color(hex: "3C9CFF")
+                )
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Constants.Colors.cardBackground)
+        )
+    }
+    
+    // MARK: - Save Button Section
+    private var saveButtonSection: some View {
+        Button {
+            saveMeal()
+        } label: {
+            HStack(spacing: 12) {
+                if isSaving {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                }
+                
+                Text(isSaving ? "Saving..." : "Log Meal")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(
+                    colors: [Color(hex: "3CD76B"), Color(hex: "26C6DA")],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(16)
+            .shadow(color: Color(hex: "3CD76B").opacity(0.4), radius: 12, x: 0, y: 6)
+        }
+        .disabled(isSaving)
+        .opacity(isSaving ? 0.8 : 1.0)
+    }
+    
+    // MARK: - Success Overlay
+    private var successOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "3CD76B"))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                
+                VStack(spacing: 8) {
+                    Text("Meal Logged!")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Successfully added to your food diary")
+                        .font(.system(size: 16))
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Constants.Colors.cardBackground)
+            )
+            .padding(.horizontal, 40)
+        }
+        .transition(.opacity)
+    }
+    
+    // MARK: - Helper Methods
+    private func saveMeal() {
+        isSaving = true
+        
+        Task {
+            do {
+                guard let userId = Auth.auth().currentUser?.uid else {
+                    throw NSError(domain: "LogMealSheet", code: 1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+                }
+                
+                let mealEntry = MealEntry(
+                    mealName: detectedFood.isEmpty ? "Scanned Meal" : detectedFood,
+                    mealType: selectedMealType.rawValue,
+                    nutrition: adjustedNutrition,
+                    timestamp: Date(),
+                    userId: userId
+                )
+                
+                try await mealService.saveMealEntry(mealEntry)
+                
+                await MainActor.run {
+                    isSaving = false
+                    
+                    // Show success animation
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        showSuccess = true
+                    }
+                    
+                    // Success feedback
+                    let impactFeedback = UINotificationFeedbackGenerator()
+                    impactFeedback.notificationOccurred(.success)
+                    
+                    // Dismiss after delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        onSave()
+                        onDismiss()
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = "Failed to save meal. Please try again."
+                    showError = true
+                    
+                    let impactFeedback = UINotificationFeedbackGenerator()
+                    impactFeedback.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+    
+    private func getFoodEmoji(for foodName: String) -> String {
+        let name = foodName.lowercased()
+        
+        if name.contains("pizza") { return "🍕" }
+        if name.contains("burger") { return "🍔" }
+        if name.contains("sandwich") { return "🥪" }
+        if name.contains("salad") { return "🥗" }
+        if name.contains("pasta") { return "🍝" }
+        if name.contains("rice") { return "🍚" }
+        if name.contains("chicken") { return "🍗" }
+        if name.contains("fish") { return "🐟" }
+        if name.contains("apple") { return "🍎" }
+        if name.contains("banana") { return "🍌" }
+        if name.contains("egg") { return "🥚" }
+        if name.contains("bread") { return "🍞" }
+        if name.contains("soup") { return "🍲" }
+        if name.contains("cake") { return "🍰" }
+        
+        return "🍽️"
+    }
+    
+    private func getCircleCount(for size: PortionSize) -> Int {
+        switch size {
+        case .small: return 1
+        case .medium: return 2
+        case .large: return 3
+        case .extraLarge: return 4
+        }
+    }
+    
+    private func getCircleSize(for size: PortionSize, index: Int) -> CGFloat {
+        switch size {
+        case .small: return index == 0 ? 8 : 6
+        case .medium: return index < 2 ? 8 : 6
+        case .large: return index < 3 ? 8 : 6
+        case .extraLarge: return 8
+        }
+    }
+}
+
+// MARK: - Nutrition Preview Card
+struct NutritionPreviewCard: View {
+    let icon: String
+    let label: String
+    let value: String
+    let unit: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(color)
+                
+                Text(label)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                
+                Spacer()
+            }
+            
+            HStack {
+                Text(value)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text(unit)
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+                
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(FitConnectColors.cardBackground)
+                .fill(Color.black.opacity(0.3))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(color.opacity(0.3), lineWidth: 1)
                 )
         )
-        .shadow(color: color.opacity(0.1), radius: 4, x: 0, y: 2)
-        .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: - Custom Slider Component
-struct SliderView: View {
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    let step: Double
-    let accentColor: Color
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // Track
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white.opacity(0.3))
-                    .frame(height: 4)
-                
-                // Progress
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(accentColor)
-                    .frame(width: geometry.size.width * CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)), height: 4)
-                
-                // Thumb
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 20, height: 20)
-                    .offset(x: geometry.size.width * CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) - 10)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { gesture in
-                                let percent = gesture.location.x / geometry.size.width
-                                let newValue = range.lowerBound + (range.upperBound - range.lowerBound) * Double(percent)
-                                value = min(max(newValue, range.lowerBound), range.upperBound)
-                                
-                                // Snap to step
-                                value = round(value / step) * step
-                            }
-                    )
-            }
-        }
-        .frame(height: 20)
-    }
-}
-
-// MARK: - Previews
 #if DEBUG
 @available(iOS 16.0, *)
 struct LogMealSheetView_Previews: PreviewProvider {
@@ -808,9 +600,9 @@ struct LogMealSheetView_Previews: PreviewProvider {
         LogMealSheetView(
             detectedFood: "Pizza",
             estimatedCalories: 450,
+            analysis: MealAnalysis(calories: 450, protein: 25.0, fat: 15.0, carbs: 55.0, fiber: 5.0, sugars: 8.0, sodium: 800, confidence: 0.87),
             onDismiss: { }
         )
-        .environmentObject(SessionStore.previewStore(isLoggedIn: true, role: "client"))
         .preferredColorScheme(.dark)
     }
 }

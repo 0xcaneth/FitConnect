@@ -15,6 +15,72 @@ struct MealEntry: Identifiable, Codable {
     var imageURL: String?
     var confidence: Double?
     
+    // Custom coding keys to handle both data formats
+    enum CodingKeys: String, CodingKey {
+        case id, mealName, foodLabel, mealType, portionIndex, portionWeight
+        case nutrition, timestamp, dateString, userId, imageURL, confidence
+        case calories, protein, fat, carbs, fiber, sugars, sodium
+    }
+    
+    // Custom decoder to handle both nested and flat nutrition data
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Decode basic fields
+        mealName = try container.decode(String.self, forKey: .mealName)
+        foodLabel = try container.decodeIfPresent(String.self, forKey: .foodLabel)
+        mealType = try container.decode(String.self, forKey: .mealType)
+        portionIndex = try container.decodeIfPresent(Int.self, forKey: .portionIndex)
+        portionWeight = try container.decodeIfPresent(Double.self, forKey: .portionWeight)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        dateString = try container.decode(String.self, forKey: .dateString)
+        userId = try container.decodeIfPresent(String.self, forKey: .userId)
+        imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        
+        // Try to decode nutrition data - first check if nested structure exists
+        if let nestedNutrition = try? container.decode(NutritionData.self, forKey: .nutrition) {
+            // LogMeal format - nested nutrition
+            nutrition = nestedNutrition
+        } else {
+            // ScanMeal format - flat nutrition fields
+            let calories = try container.decode(Int.self, forKey: .calories)
+            let protein = try container.decode(Double.self, forKey: .protein)
+            let fat = try container.decode(Double.self, forKey: .fat)
+            let carbs = try container.decode(Double.self, forKey: .carbs)
+            let fiber = try container.decodeIfPresent(Double.self, forKey: .fiber) ?? 0.0
+            let sugars = try container.decodeIfPresent(Double.self, forKey: .sugars) ?? 0.0
+            let sodium = try container.decodeIfPresent(Double.self, forKey: .sodium) ?? 0.0
+            
+            nutrition = NutritionData(
+                calories: calories,
+                protein: protein,
+                fat: fat,
+                carbs: carbs,
+                fiber: fiber,
+                sugars: sugars,
+                sodium: sodium
+            )
+        }
+    }
+    
+    // Custom encoder to always save in the new nested format
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(mealName, forKey: .mealName)
+        try container.encodeIfPresent(foodLabel, forKey: .foodLabel)
+        try container.encode(mealType, forKey: .mealType)
+        try container.encodeIfPresent(portionIndex, forKey: .portionIndex)
+        try container.encodeIfPresent(portionWeight, forKey: .portionWeight)
+        try container.encode(nutrition, forKey: .nutrition)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(dateString, forKey: .dateString)
+        try container.encodeIfPresent(userId, forKey: .userId)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
+    }
+    
     // Computed properties for display
     var displayText: String {
         return mealName
