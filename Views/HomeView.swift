@@ -11,7 +11,9 @@ struct HomeView: View {
     @State private var showingLogMeal = false
     @State private var showingScanMeal = false
     @State private var isFABExpanded = false
-    
+    @State private var showingLogMealSheet = false
+    @State private var bottomSheetDetent: PresentationDetent = .height(400)
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -57,7 +59,7 @@ struct HomeView: View {
                 // Floating Action Button
                 HomeFloatingActionButtonView(
                     isExpanded: $isFABExpanded,
-                    onLogMeal: { showingLogMeal = true },
+                    onLogMeal: { showingLogMealSheet = true },
                     onStartWorkout: { /* TODO: Start workout */ }
                 )
             }
@@ -74,6 +76,16 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingNotifications) {
             NotificationsView()
+        }
+        .sheet(isPresented: $showingLogMealSheet) {
+            LogMealSheetView(
+                detectedFood: "",
+                estimatedCalories: 0,
+                onDismiss: { showingLogMealSheet = false }
+            )
+            .presentationDetents([.height(400), .height(600), .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
         }
         .onAppear {
             homeViewModel.healthKitManager = healthKitManager
@@ -271,7 +283,7 @@ struct HomeView: View {
                     title: "Log Meal",
                     color: Color(hex: "#00E5FF") ?? .cyan
                 ) {
-                    showingLogMeal = true
+                    showingLogMealSheet = true
                 }
                 
                 HomeQuickActionCard(

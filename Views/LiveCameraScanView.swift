@@ -598,34 +598,58 @@ class LiveCameraScanViewModel: ObservableObject {
     }
     
     private func classifyImage(_ image: UIImage) async {
-        let result = await ErrorBoundary.safely {
-            try await withCheckedThrowingContinuation { continuation in
-                coreMLClassifier.classifyFood(image: image) { result in
-                    continuation.resume(with: result)
-                }
+        print("📱 Live camera: Starting classification...")
+        
+        let result = await withCheckedContinuation { continuation in
+            coreMLClassifier.classifyFood(image: image) { result in
+                continuation.resume(returning: result)
             }
         }
         
-        guard let prediction = result else {
+        switch result {
+        case .success(let prediction):
+            print("📱 Live camera: Classification successful - \(prediction.label) with \(String(format: "%.0f%%", prediction.confidence * 100)) confidence")
+            
+            if prediction.confidence < 0.3 {
+                isAnalyzing = false
+                showError(message: "Unable to identify food with confidence. Please try again with better lighting or a clearer view of the food.")
+                
+                let notificationFeedback = UINotificationFeedbackGenerator()
+                notificationFeedback.notificationOccurred(.warning)
+                return
+            }
+            
+            capturedResult = CapturedResult(image: image, prediction: prediction)
             isAnalyzing = false
-            showError(message: "Food classification failed. Please try again.")
+            
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.success)
+            
+            print("📱 Live camera: Food detected successfully - \(prediction.label)")
+            
+        case .failure(let error):
+            print("📱 Live camera: Classification failed - \(error.localizedDescription)")
+            
+            isAnalyzing = false
+            
+            switch error {
+            case ClassificationError.lowConfidence:
+                showError(message: "Unable to identify food with confidence. Please try again with better lighting or position the food more clearly in the frame.")
+            case ClassificationError.noResults:
+                showError(message: "No food detected in image. Please ensure food is clearly visible and well-lit.")
+            case ClassificationError.invalidImage:
+                showError(message: "Invalid image. Please try taking another photo.")
+            case ClassificationError.modelNotLoaded:
+                showError(message: "Food recognition is temporarily unavailable. Please try again in a moment.")
+            case ClassificationError.predictionFailed(let message):
+                showError(message: "Analysis failed: \(message)")
+            default:
+                showError(message: "Food classification failed. Please try again.")
+            }
             
             let notificationFeedback = UINotificationFeedbackGenerator()
             notificationFeedback.notificationOccurred(.error)
-            return
         }
-        
-        if prediction.confidence < 0.8 {
-            isAnalyzing = false
-            showError(message: "Unable to identify food with confidence. Please try again with better lighting or a clearer view of the food.")
-            return
-        }
-        
-        capturedResult = CapturedResult(image: image, prediction: prediction)
-        isAnalyzing = false
-        
-        let notificationFeedback = UINotificationFeedbackGenerator()
-        notificationFeedback.notificationOccurred(.success)
     }
     
     private func showError(message: String) {

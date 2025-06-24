@@ -14,6 +14,12 @@
 		36D5133A2DDF9F1F00CF578D /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 36D513392DDF9F1F00CF578D /* FirebaseAuth */; };
 		36D5133E2DDF9F1F00CF578D /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 36D5133D2DDF9F1F00CF578D /* FirebaseCore */; };
 		36D513462DDF9F1F00CF578D /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 36D513452DDF9F1F00CF578D /* FirebaseFirestore */; };
+		CAB34C852E0A8178006055BE /* food.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = CAB34C842E0A8178006055BE /* food.mlmodel */; };
+		CAB34C862E0A8178006055BE /* food.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = CAB34C842E0A8178006055BE /* food.mlmodel */; };
+		CAB34C872E0A8178006055BE /* food.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = CAB34C842E0A8178006055BE /* food.mlmodel */; };
+		CAED0AE52E0851D600BB4FF9 /* nutrition.csv in Resources */ = {isa = PBXBuildFile; fileRef = CAED0AE42E0851D600BB4FF9 /* nutrition.csv */; };
+		CAED0AE62E0851D600BB4FF9 /* nutrition.csv in Resources */ = {isa = PBXBuildFile; fileRef = CAED0AE42E0851D600BB4FF9 /* nutrition.csv */; };
+		CAED0AE72E0851D600BB4FF9 /* nutrition.csv in Resources */ = {isa = PBXBuildFile; fileRef = CAED0AE42E0851D600BB4FF9 /* nutrition.csv */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +56,8 @@
 		36686FCC2DBC1A0C003F4D65 /* FitConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FitConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36686FDC2DBC1A0D003F4D65 /* FitConnectTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitConnectTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		36686FE62DBC1A0E003F4D65 /* FitConnectUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FitConnectUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CAB34C842E0A8178006055BE /* food.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = food.mlmodel; sourceTree = "<group>"; };
+		CAED0AE42E0851D600BB4FF9 /* nutrition.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = nutrition.csv; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -171,6 +179,8 @@
 		36686FC32DBC1A0C003F4D65 = {
 			isa = PBXGroup;
 			children = (
+				CAB34C842E0A8178006055BE /* food.mlmodel */,
+				CAED0AE42E0851D600BB4FF9 /* nutrition.csv */,
 				364B70B32DC66F4F003F2B6B /* Views */,
 				366870002DBC1A7D003F4D65 /* Resources */,
 				36686FFF2DBC1A77003F4D65 /* Helpers */,
@@ -320,6 +330,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAED0AE52E0851D600BB4FF9 /* nutrition.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +338,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAED0AE62E0851D600BB4FF9 /* nutrition.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -334,6 +346,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAED0AE72E0851D600BB4FF9 /* nutrition.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +357,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAB34C852E0A8178006055BE /* food.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,6 +365,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAB34C862E0A8178006055BE /* food.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -358,6 +373,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAB34C872E0A8178006055BE /* food.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -515,7 +531,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -548,7 +564,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

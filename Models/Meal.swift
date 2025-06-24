@@ -40,13 +40,19 @@ struct MealAnalysis: Codable {
     let protein: Double
     let fat: Double
     let carbs: Double
+    let fiber: Double 
+    let sugars: Double 
+    let sodium: Double 
     let confidence: Double
     
-    init(calories: Int, protein: Double, fat: Double, carbs: Double, confidence: Double = 0.8) {
+    init(calories: Int, protein: Double, fat: Double, carbs: Double, fiber: Double = 0.0, sugars: Double = 0.0, sodium: Double = 0.0, confidence: Double = 0.8) {
         self.calories = calories
         self.protein = protein
         self.fat = fat
         self.carbs = carbs
+        self.fiber = fiber
+        self.sugars = sugars
+        self.sodium = sodium
         self.confidence = confidence
     }
 }

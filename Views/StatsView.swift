@@ -127,19 +127,7 @@ struct StatsView: View {
                 .foregroundColor(.white)
             
             VStack(spacing: 12) {
-                NutritionCard(
-                    icon: "fork.knife",
-                    title: "Today's Meals",
-                    subtitle: "No meals logged yet",
-                    color: .purple
-                )
-                
-                NutritionCard(
-                    icon: "fork.knife",
-                    title: "Weekly Meals",
-                    subtitle: "No meals logged this week",
-                    color: .purple
-                )
+                // Removed NutritionCard
             }
         }
     }
@@ -228,38 +216,7 @@ struct WeeklyTotalCard: View {
     }
 }
 
-struct NutritionCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundColor(color)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                
-                Text(subtitle)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(hex: "#1E1F25") ?? .gray.opacity(0.3))
-        )
-    }
-}
-
+// MARK: - Previews
 #if DEBUG
 struct StatsView_Previews: PreviewProvider {
     static var previews: some View {
