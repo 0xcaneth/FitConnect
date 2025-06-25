@@ -23,11 +23,6 @@ struct ChatListView: View {
     }
 }
 
-// Helper extension from HomeView.swift, needed if this file is compiled standalone for previews
-// extension Color {
-//     init(hex: String) { ... } // Copy from HomeView if needed for isolated preview
-// }
-
 #if DEBUG
 struct ChatListView_Previews: PreviewProvider {
     static var previews: some View {

@@ -29,8 +29,8 @@ struct ContentView: View {
                 AuthFlowView()
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                // Main app with tab structure
-                MainTabView()
+                // Main app routing is now handled by RootView
+                RootView()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -67,8 +67,8 @@ struct ContentOnboardingFlowView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
                 
             case .terms:
-                TermsConditionsView(
-                    onContinue: {
+                SimpleTermsView(
+                    onAccept: {
                         onComplete()
                     },
                     onBack: {
@@ -87,107 +87,6 @@ struct ContentOnboardingFlowView: View {
                     }
             }
         }
-    }
-}
-
-@available(iOS 16.0, *)
-struct MainTabView: View {
-    @EnvironmentObject var session: SessionStore
-    @State private var selectedTab: Int = 0
-    
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            // Home Tab
-            HomeView()
-                .tabItem {
-                    Image(systemName: selectedTab == 0 ? "house.fill" : "house")
-                    Text("Home")
-                }
-                .tag(0)
-            
-            // Feed Tab
-            NavigationView {
-                VStack {
-                    Text("Feed")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("Coming Soon")
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(hex: "#0D0F14"))
-                .navigationTitle("Feed")
-                .navigationBarHidden(true)
-            }
-            .tabItem {
-                Image(systemName: selectedTab == 1 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
-                Text("Feed")
-            }
-            .tag(1)
-            
-            // Challenges Tab
-            NavigationView {
-                VStack {
-                    Text("Challenges")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("Coming Soon")
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(hex: "#0D0F14"))
-                .navigationTitle("Challenges")
-                .navigationBarHidden(true)
-            }
-            .tabItem {
-                Image(systemName: selectedTab == 2 ? "trophy.fill" : "trophy")
-                Text("Challenges")
-            }
-            .tag(2)
-            
-            // Profile Tab
-            NavigationView {
-                VStack {
-                    Text("Profile")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("Coming Soon")
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(hex: "#0D0F14"))
-                .navigationTitle("Profile")
-                .navigationBarHidden(true)
-            }
-            .tabItem {
-                Image(systemName: selectedTab == 3 ? "person.fill" : "person")
-                Text("Profile")
-            }
-            .tag(3)
-        }
-        .accentColor(Color(hex: "#7C4DFF"))
-        .onAppear {
-            configureTabBarAppearance()
-        }
-    }
-    
-    private func configureTabBarAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(Color(hex: "#0D0F14"))
-        
-        appearance.stackedLayoutAppearance.normal.iconColor = UIColor(Color(hex: "#CCCCCC"))
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(hex: "#CCCCCC"))
-        ]
-        
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(hex: "#7C4DFF"))
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(hex: "#7C4DFF"))
-        ]
-        
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 

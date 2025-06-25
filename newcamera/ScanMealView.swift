@@ -44,7 +44,7 @@ struct ScanMealView: View {
             .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: animateBackground)
             
             if showingResults {
-                ScanResultView(
+                ScanResultView( 
                     image: capturedImage,
                     analysis: analysisResult,
                     detectedFoodName: foodPrediction?.label ?? "Unknown Food", 
