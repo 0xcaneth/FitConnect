@@ -5,6 +5,9 @@ struct ClientsView: View {
     @StateObject private var clientsService = ClientsService()
     @State private var searchText = ""
     
+    @State private var selectedClientForAnalytics: DietitianClient?
+    @State private var showingAnalytics = false
+
     private var filteredClients: [DietitianClient] {
         if searchText.isEmpty {
             return clientsService.clients
@@ -54,6 +57,24 @@ struct ClientsView: View {
                 Text(errorMessage)
             }
         }
+        .sheet(isPresented: $showingAnalytics) {
+            if let client = selectedClientForAnalytics {
+                if #available(iOS 16.0, *) {
+                    UserAnalysisView(userId: client.id, isCurrentUser: false)
+                } else {
+                    // Fallback for older iOS versions
+                    VStack {
+                        Text("Analytics for \(client.name)")
+                            .font(.title)
+                            .foregroundColor(.white)
+                        Text("Analytics requires iOS 16 or later")
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                }
+            }
+        }
     }
     
     @ViewBuilder
@@ -79,8 +100,8 @@ struct ClientsView: View {
                     ForEach(filteredClients) { client in
                         DietitianClientRow(client: client)
                             .onTapGesture {
-                                // TODO: Navigate to client detail view
-                                print("Tapped client: \(client.name)")
+                                selectedClientForAnalytics = client
+                                showingAnalytics = true
                             }
                     }
                 }

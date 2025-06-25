@@ -12,20 +12,29 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "dietitian";
     }
 
-    // 2) Check if dietitian is assigned to a specific client
+    // 2) Check if dietitian is assigned to a specific client (legacy method)
     function isDietitianAssignedToClient(clientId) {
       return isDietitian()
         && exists(/databases/$(database)/documents/users/$(clientId))
         && get(/databases/$(database)/documents/users/$(clientId)).data.assignedDietitianId == request.auth.uid;
     }
 
-    // 3) Check if user can access this userId's data
-    function canAccessUserData(userId) {
-      return request.auth != null 
-        && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    // 3) Check if dietitian has access to client via expertId (new method)
+    function isDietitianLinkedToClient(clientId) {
+      return isDietitian()
+        && exists(/databases/$(database)/documents/users/$(clientId))
+        && get(/databases/$(database)/documents/users/$(clientId)).data.expertId == request.auth.uid;
     }
 
-    // 4) Check if user is linked to a specific dietitian via expertId
+    // 4) Check if user can access this userId's data (supports both connection methods)
+    function canAccessUserData(userId) {
+      return request.auth != null
+        && (request.auth.uid == userId
+            || isDietitianAssignedToClient(userId)
+            || isDietitianLinkedToClient(userId));
+    }
+
+    // 5) Check if user is linked to a specific dietitian via expertId
     function isLinkedToExpert(dietitianId) {
       return request.auth != null
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -55,6 +64,11 @@ service cloud.firestore {
         // Allow read/write access to user and assigned dietitian
         allow read, write: if canAccessUserData(userId);
         
+        // HealthKit subcollection under healthData
+        match /healthkit/{healthkitDocId} {
+          allow read, write: if canAccessUserData(userId);
+        }
+        
         // Meals subcollection under healthData
         match /meals/{mealId} {
           allow read, write: if canAccessUserData(userId);
@@ -67,11 +81,16 @@ service cloud.firestore {
       }
 
       // ----------------------------
-      // HEALTH DATA - LOWERCASE VERSION
+      // HEALTH DATA - LOWERCASE VERSION (for backwards compatibility)
       // ----------------------------
       match /healthdata/{date} {
         // Allow read/write access to user and assigned dietitian
         allow read, write: if canAccessUserData(userId);
+        
+        // HealthKit subcollection under healthdata
+        match /healthkit/{healthkitDocId} {
+          allow read, write: if canAccessUserData(userId);
+        }
         
         // Meals subcollection under healthdata
         match /meals/{mealId} {
@@ -99,7 +118,7 @@ service cloud.firestore {
       }
 
       match /notifications/{notificationId} {
-        allow read, write: if request.auth != null 
+        allow read, write: if request.auth != null
                           && request.auth.uid == userId;
       }
 
@@ -130,39 +149,37 @@ service cloud.firestore {
       // ----------------------------
       match /clients/{clientId} {
         // Read: Dietitian can read their clients, clients can read their own connection
-        allow read: if request.auth != null 
+        allow read: if request.auth != null
                    && (request.auth.uid == dietitianId || request.auth.uid == clientId);
 
         // Create: Only the client themselves can create their connection
-        allow create: if request.auth != null 
+        allow create: if request.auth != null
                      && request.auth.uid == clientId
                      && request.resource.data.userId == clientId;
 
         // Update: Dietitian or client can update
-        allow update: if request.auth != null 
+        allow update: if request.auth != null
                      && (request.auth.uid == dietitianId || request.auth.uid == clientId);
 
         // Delete: Client can delete their own connection, dietitian can remove clients
-        allow delete: if request.auth != null 
+        allow delete: if request.auth != null
                      && (request.auth.uid == dietitianId || request.auth.uid == clientId);
       }
       
       // ----------------------------
-      // APPOINTMENTS SUBCOLLECTION (for appointment scheduling) - TEMPORARY PERMISSIVE RULES
+      // APPOINTMENTS SUBCOLLECTION (for appointment scheduling)
       // ----------------------------
       match /appointments/{appointmentId} {
         // Dietitians can read/write/list their own appointments
         allow read, write, list: if request.auth != null && request.auth.uid == dietitianId;
         
-        // TEMPORARY: Allow any authenticated user to read appointments for debugging
-        allow read, list: if request.auth != null;
-        
-        // TEMPORARY: Allow any authenticated user to update appointments for debugging
-        allow update: if request.auth != null &&
-          request.resource.data.status == 'cancelled';
+        // Clients can read/update appointments where they are the client
+        allow read, update: if request.auth != null &&
+          (resource.data.clientId == request.auth.uid ||
+           request.resource.data.clientId == request.auth.uid);
         
         // Clients can create appointments for themselves
-        allow create: if request.auth != null && 
+        allow create: if request.auth != null &&
           request.auth.uid == request.resource.data.clientId;
       }
       
@@ -178,7 +195,7 @@ service cloud.firestore {
     match /chats/{chatId} {
       // List and read chats
       allow list: if request.auth != null;
-      allow get: if request.auth != null 
+      allow get: if request.auth != null
                 && request.auth.uid in resource.data.participantIds;
 
       // Create new chat
@@ -205,7 +222,7 @@ service cloud.firestore {
                     && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
 
         // Update message (for read receipts)
-        allow update: if request.auth != null 
+        allow update: if request.auth != null
                     && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
 
         // No message deletion
@@ -246,7 +263,7 @@ service cloud.firestore {
                   && request.resource.data.authorId == request.auth.uid;
       
       // Update/delete post
-      allow update, delete: if request.auth != null 
+      allow update, delete: if request.auth != null
                           && (resource.data.authorId == request.auth.uid || isDietitian());
 
       // Likes subcollection
@@ -270,7 +287,7 @@ service cloud.firestore {
     // GLOBAL NOTIFICATIONS
     // ----------------------------
     match /notifications/{notificationId} {
-      allow read, write: if request.auth != null 
+      allow read, write: if request.auth != null
                         && request.auth.uid == resource.data.userId;
     }
 

@@ -20,6 +20,7 @@ struct ClientHomeView: View {
     @State private var showingScanMeal = false
     @State private var showingLogMeal = false
     @State private var showingAppointments = false
+    @State private var showingAnalytics = false
 
     private let chatService = ChatService.shared
     
@@ -34,7 +35,7 @@ struct ClientHomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if showHealthKitBanner && healthKitManager.authorizationStatus != .sharingAuthorized {
+                if showHealthKitBanner && !healthKitManager.isAuthorized {
                     healthKitPermissionBanner
                 }
                 
@@ -53,8 +54,8 @@ struct ClientHomeView: View {
         }
         .background(Color(hex: "0D0F14"))
         .onAppear {
-            if healthKitManager.authorizationStatus == .sharingAuthorized {
-                showHealthKitBanner = false
+            if healthKitManager.isAuthorized {
+                showHealthKitBanner = !healthKitManager.isAuthorized
             }
             // if session.assignedDietitianId.isEmpty {
             //     session.assignedDietitianId = "mock_dietitian_123"
@@ -74,6 +75,23 @@ struct ClientHomeView: View {
         .sheet(isPresented: $showingAppointments) {
             ClientAppointmentsView()
                 .environmentObject(session)
+        }
+        .sheet(isPresented: $showingAnalytics) {
+            if #available(iOS 16.0, *) {
+                UserAnalysisView(userId: session.currentUserId ?? "", isCurrentUser: true)
+                    .environmentObject(session)
+            } else {
+                // Fallback for older iOS versions
+                VStack {
+                    Text("Analytics")
+                        .font(.title)
+                        .foregroundColor(.white)
+                    Text("Analytics requires iOS 16 or later")
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+            }
         }
         .alert("Error", isPresented: $showError) {
             Button("OK") { }
@@ -125,7 +143,7 @@ struct ClientHomeView: View {
             Button {
                 Task {
                     await healthKitManager.requestAuthorization()
-                    if healthKitManager.authorizationStatus == .sharingAuthorized {
+                    if healthKitManager.isAuthorized {
                         withAnimation(.easeOut(duration: 0.3)) {
                             showHealthKitBanner = false
                         }
@@ -335,9 +353,9 @@ struct ClientHomeView: View {
                     quickActionButton(
                         title: "Stats",
                         icon: "chart.bar.fill",
-                        gradient: GradientColors(start: Color(hex: "42A5F5"), end: Color(hex: "1E88E5"))
+                        gradient: GradientColors(start: Color(hex: "#42A5F5"), end: Color(hex: "#1E88E5"))
                     ) {
-                        // Action for Stats
+                        showingAnalytics = true
                     }
                     
                     quickActionButton(
@@ -369,88 +387,6 @@ struct ClientHomeView: View {
         
         showingAppointments = true
     }
-    
-    //    private func openChatWithAssignedDietitian() {
-    //        if isCreatingChat {
-    //            print("[ClientHome] openChatWithAssignedDietitian called while already isCreatingChat. Aborting.")
-    //            return
-    //        }
-    //
-    //        guard let currentUserId = session.currentUserId,
-    //              let currentUserFullName = session.currentUser?.fullName,
-    //              !session.assignedDietitianId.isEmpty else {
-    //            errorMessage = "User not logged in or no dietitian assigned."
-    //            showError = true
-    //            return
-    //        }
-    //
-    //        let dietitianId = session.assignedDietitianId
-    //
-    //        // Ensure client and dietitian are not the same (though assignedDietitianId should prevent this)
-    //        guard currentUserId != dietitianId else {
-    //            errorMessage = "Invalid chat configuration."
-    //            showError = true
-    //            return
-    //        }
-    //
-    //        isCreatingChat = true
-    //
-    //        if dietitianId == "mock_dietitian_123" {
-    //            let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
-    //            let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: "Dr. Sarah Wilson", photoURL: nil)
-    //
-    //            chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
-    //                DispatchQueue.main.async {
-    //                    self.isCreatingChat = false
-    //                    switch result {
-    //                    case .success(let chatSummary):
-    //                        self.chatSummaryForSheet = chatSummary
-    //                    case .failure(let error):
-    //                        self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
-    //                        self.showError = true
-    //                    }
-    //                }
-    //            }
-    //            return
-    //        }
-    //
-    //        let db = Firestore.firestore()
-    //        db.collection("users").document(dietitianId).getDocument { dietitianSnapshot, error in
-    //            DispatchQueue.main.async {
-    //                if let error = error {
-    //                    self.errorMessage = "Could not fetch dietitian details: \(error.localizedDescription)"
-    //                    self.showError = true
-    //                    self.isCreatingChat = false
-    //                    return
-    //                }
-    //
-    //                guard let dietitianData = dietitianSnapshot?.data(),
-    //                      let dietitianFullName = dietitianData["fullName"] as? String else {
-    //                    self.errorMessage = "Dietitian details incomplete."
-    //                    self.showError = true
-    //                    self.isCreatingChat = false
-    //                    return
-    //                }
-    //                let dietitianPhotoURL = dietitianData["photoURL"] as? String
-    //
-    //                let clientParticipant = ParticipantInfo(id: currentUserId, fullName: currentUserFullName, photoURL: session.currentUser?.photoURL)
-    //                let dietitianParticipantInfo = ParticipantInfo(id: dietitianId, fullName: dietitianFullName, photoURL: dietitianPhotoURL)
-    //
-    //                chatService.getOrCreateChat(client: clientParticipant, dietitian: dietitianParticipantInfo) { result in
-    //                    DispatchQueue.main.async {
-    //                        self.isCreatingChat = false
-    //                        switch result {
-    //                        case .success(let chatSummary):
-    //                            self.chatSummaryForSheet = chatSummary
-    //                        case .failure(let error):
-    //                            self.errorMessage = "Failed to get or create chat: \(error.localizedDescription)"
-    //                            self.showError = true
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
     
     struct GradientColors {
         let start: Color
