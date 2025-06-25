@@ -24,14 +24,14 @@ struct ContentView: View {
                     hasSeenOnboarding = true
                     UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(AnyTransition.move(edge: .bottom).combined(with: .opacity))
             } else if !session.isLoggedIn {
                 AuthFlowView()
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(AnyTransition.move(edge: .bottom).combined(with: .opacity))
             } else {
                 // Main app routing is now handled by RootView
                 RootView()
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .transition(AnyTransition.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.6), value: showingSplash)
@@ -64,7 +64,7 @@ struct ContentOnboardingFlowView: View {
                         }
                     }
                 )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(AnyTransition.move(edge: .trailing).combined(with: .opacity))
                 
             case .terms:
                 SimpleTermsView(
@@ -77,7 +77,7 @@ struct ContentOnboardingFlowView: View {
                         }
                     }
                 )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(AnyTransition.move(edge: .trailing).combined(with: .opacity))
                 
             default:
                 // For any other cases, just complete
