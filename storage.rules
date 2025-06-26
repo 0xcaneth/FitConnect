@@ -1,0 +1,135 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ----------------------------
+    // HELPER FUNCTIONS
+    // ----------------------------
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isDietitian() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "dietitian";
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidVideoType() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    function isReasonableSize() {
+      // 50MB max for videos, 10MB max for images
+      return (isValidVideoType() && request.resource.size < 50 * 1024 * 1024) ||
+             (isValidImageType() && request.resource.size < 10 * 1024 * 1024);
+    }
+
+    // ----------------------------
+    // USER PROFILE IMAGES
+    // ----------------------------
+    match /user_avatars/{userId}/{allPaths=**} {
+      // Users can upload/update/delete their own avatars
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
+    }
+
+    // ----------------------------
+    // MESSAGING MEDIA
+    // ----------------------------
+    match /messages/{messageType}/{allPaths=**} {
+      // All authenticated users can read message media
+      allow read: if isAuthenticated();
+      
+      // Photos: authenticated users can upload images
+      allow write: if messageType == 'photos' && 
+                   isAuthenticated() && 
+                   isValidImageType() && 
+                   isReasonableSize();
+      
+      // Videos: authenticated users can upload videos
+      allow write: if messageType == 'videos' && 
+                   isAuthenticated() && 
+                   isValidVideoType() && 
+                   isReasonableSize();
+      
+      // Snaps: authenticated users can upload images (will be deleted after consumption)
+      allow write: if messageType == 'snaps' && 
+                   isAuthenticated() && 
+                   isValidImageType() && 
+                   isReasonableSize();
+                   
+      // Allow deletion for cleanup (especially snaps)
+      allow delete: if isAuthenticated();
+    }
+
+    // ----------------------------
+    // MEAL PHOTOS (for meal scanning/logging)
+    // ----------------------------
+    match /meal_photos/{userId}/{allPaths=**} {
+      // Users can upload their own meal photos, dietitians can view assigned clients' photos
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
+      allow delete: if isOwner(userId) || isDietitian();
+    }
+
+    // ----------------------------
+    // WORKOUT VIDEOS
+    // ----------------------------
+    match /workout_videos/{userId}/{allPaths=**} {
+      // Users can upload their own workout videos
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidVideoType() && isReasonableSize();
+      allow delete: if isOwner(userId) || isDietitian();
+    }
+
+    // ----------------------------
+    // POST IMAGES (for social feed)
+    // ----------------------------
+    match /post_images/{userId}/{allPaths=**} {
+      // Users can upload images for their posts
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
+      allow delete: if isOwner(userId) || isDietitian();
+    }
+
+    // ----------------------------
+    // CHAT ATTACHMENTS (legacy - keeping for backward compatibility)
+    // ----------------------------
+    match /chat_attachments/{chatId}/{messageType}/{allPaths=**} {
+      // All authenticated users can read/write chat attachments
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                   ((messageType == 'images' && isValidImageType()) || 
+                    (messageType == 'videos' && isValidVideoType())) &&
+                   isReasonableSize();
+      allow delete: if isAuthenticated();
+    }
+
+    // ----------------------------
+    // TEMP UPLOADS (for processing)
+    // ----------------------------
+    match /temp_uploads/{userId}/{allPaths=**} {
+      // Users can upload temporary files for processing
+      allow read, write: if isOwner(userId) && isReasonableSize();
+      // Auto-cleanup after 24 hours would be handled by Cloud Functions
+      allow delete: if isAuthenticated();
+    }
+
+    // ----------------------------
+    // DEFAULT DENY ALL
+    // ----------------------------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

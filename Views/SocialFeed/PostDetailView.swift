@@ -117,8 +117,8 @@ struct PostDetailView: View {
                     .padding(.vertical, 2)
             }
 
-            if !post.content.isEmpty {
-                Text(post.content)
+            if let content = post.content, !content.isEmpty {
+                Text(content)
                     .font(post.type == .motivation ? .title3 : .body)
                     .foregroundColor(.white.opacity(0.9))
                     .lineLimit(nil)

@@ -10,6 +10,7 @@ struct ProfileView: View {
     @State private var userBadges: [Badge] = []
     @State private var isLoadingProfile: Bool = true
     @State private var showingExpertPanel = false
+    @State private var isGeneratingHealthData = false
 
     private var userName: String {
         session.currentUser?.fullName ?? "User Name"
@@ -57,6 +58,8 @@ struct ProfileView: View {
                             settingsSection()
                             
                             logoutButton()
+                            
+                            addHealthDataButton()
                             
                             Spacer(minLength: 100)
                         }
@@ -351,6 +354,39 @@ struct ProfileView: View {
     }
     
     @ViewBuilder
+    private func addHealthDataButton() -> some View {
+        Button(action: {
+            generateTestHealthData()
+        }) {
+            HStack {
+                if isGeneratingHealthData {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                }
+                
+                Text(isGeneratingHealthData ? "Generating..." : "Add HealthData")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(hex: "#22C55E").opacity(0.8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color(hex: "#22C55E"), lineWidth: 1)
+                    )
+            )
+        }
+        .disabled(isGeneratingHealthData)
+    }
+    
+    @ViewBuilder
     private func loadingView() -> some View {
         VStack(spacing: 16) {
             ProgressView()
@@ -411,6 +447,32 @@ struct ProfileView: View {
                     }
                 }
             }
+    }
+    
+    private func generateTestHealthData() {
+        guard let userId = session.currentUserId, !userId.isEmpty else {
+            print("[ProfileView] User not logged in, cannot generate test data")
+            return
+        }
+        
+        isGeneratingHealthData = true
+        
+        Task {
+            do {
+                await TestHealthDataGenerator.generateRandomHealthData(for: userId)
+                
+                DispatchQueue.main.async {
+                    self.isGeneratingHealthData = false
+                    // Show success feedback
+                    print("[ProfileView] Successfully generated test health data")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isGeneratingHealthData = false
+                    print("[ProfileView] Error generating test health data: \(error)")
+                }
+            }
+        }
     }
 }
 

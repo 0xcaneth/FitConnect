@@ -18,7 +18,7 @@ struct ClientTabView: View {
                 }
                 .tag(0)
             
-            ClientChatListView()
+            ClientChatView()
                 .tabItem {
                     Image(systemName: selectedTab == 1 ? "message.fill" : "message")
                         .font(.system(size: 20))

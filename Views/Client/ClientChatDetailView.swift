@@ -1,55 +1,106 @@
 import SwiftUI
 import FirebaseFirestore
+import PhotosUI
+import AVFoundation
+import UIKit
 
 @available(iOS 16.0, *)
 struct ClientChatDetailView: View {
     @EnvironmentObject var session: SessionStore
     @Environment(\.dismiss) var dismiss
-    @StateObject private var viewModel: ClientChatDetailViewModel
+    @StateObject private var messagingService = MessagingService.shared
     
-    let chatId: String
-    let dietitianName: String
-    let dietitianAvatarURL: String?
-
-    init(chatId: String, dietitianName: String, dietitianAvatarURL: String? = nil, session: SessionStore) {
-        self.chatId = chatId
-        self.dietitianName = dietitianName
-        self.dietitianAvatarURL = dietitianAvatarURL
-        self._viewModel = StateObject(wrappedValue: ClientChatDetailViewModel(chatId: chatId, sessionStore: session))
-    }
+    let recipientId: String
+    let recipientName: String
+    let recipientAvatarUrl: String?
+    
+    @State private var messages: [Message] = []
+    @State private var newMessageText: String = ""
+    @State private var isLoading = true
+    @State private var showAttachmentOptions = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+    @State private var isSnapMode = false
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var selectedVideo: PhotosPickerItem?
+    @State private var selectedSnapPhoto: PhotosPickerItem?
+    @State private var showingPhotoLibrary = false
+    @State private var showingVideoLibrary = false
+    @State private var showingSnapLibrary = false
+    @State private var showCamera = false
+    @State private var showVideoRecorder = false
 
     var body: some View {
         VStack(spacing: 0) {
             customHeader
             
-            if viewModel.isLoading {
+            if isLoading {
                 loadingView
-            } else if viewModel.messages.isEmpty {
+            } else if messages.isEmpty {
                 emptyStateView
             } else {
-                messageListView
+                messagesView
             }
             
             messageInputView
         }
-        .background(Color(hex: "0D0F14").ignoresSafeArea())
+        .background(FitConnectColors.backgroundDark.ignoresSafeArea())
         .navigationBarHidden(true)
         .onAppear {
-            print("[ClientChatDetailView] onAppear called for chatId: \(chatId)")
-            viewModel.startListeningForMessages()
-            Task {
-                await viewModel.markChatAsReadByClient()
+            loadMessages()
+        }
+        .onChange(of: selectedPhoto) { newPhoto in
+            if let newPhoto = newPhoto {
+                Task {
+                    print("[Chat] Handling photo from gallery")
+                    await handlePhotoSelection(newPhoto)
+                    selectedPhoto = nil
+                }
             }
         }
-        .alert(isPresented: $viewModel.showSendError) {
-            Alert(
-                title: Text("Error"),
-                message: Text(viewModel.errorMessage ?? "Failed to send message."),
-                dismissButton: .default(Text("OK"))
-            )
+        .onChange(of: selectedVideo) { newVideo in
+            if let newVideo = newVideo {
+                Task {
+                    print("[Chat] Handling video from gallery")
+                    await handleVideoSelection(newVideo)
+                    selectedVideo = nil
+                }
+            }
         }
+        .onChange(of: selectedSnapPhoto) { newSnap in
+            if let newSnap = newSnap {
+                Task {
+                    print("[Chat] Handling snap from gallery")
+                    await handleSnapPhotoSelection(newSnap)
+                    selectedSnapPhoto = nil
+                }
+            }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK") {}
+        } message: {
+            Text(errorMessage ?? "An error occurred")
+        }
+        .photosPicker(
+            isPresented: $showingPhotoLibrary,
+            selection: $selectedPhoto,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .photosPicker(
+            isPresented: $showingVideoLibrary,
+            selection: $selectedVideo,
+            matching: .videos,
+            photoLibrary: .shared()
+        )
+        .photosPicker(
+            isPresented: $showingSnapLibrary,
+            selection: $selectedSnapPhoto,
+            matching: .images,
+            photoLibrary: .shared()
+        )
     }
-
+    
     private var customHeader: some View {
         HStack {
             Button {
@@ -64,35 +115,24 @@ struct ClientChatDetailView: View {
             }
 
             HStack(spacing: 12) {
-                if let avatarURLString = dietitianAvatarURL, !avatarURLString.isEmpty, let url = URL(string: avatarURLString) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Circle()
-                            .fill(Color(hex: "AB47BC"))
-                            .overlay(
-                                Image(systemName: "stethoscope")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
-                            )
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
-                } else {
+                AsyncImage(url: URL(string: recipientAvatarUrl ?? "")) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
                     Circle()
-                        .fill(Color(hex: "AB47BC"))
-                        .frame(width: 40, height: 40)
+                        .fill(FitConnectColors.accentPurple)
                         .overlay(
                             Image(systemName: "stethoscope")
                                 .font(.system(size: 18))
                                 .foregroundColor(.white)
                         )
                 }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(viewModel.actualDietitianName.isEmpty ? dietitianName : viewModel.actualDietitianName)
+                    Text(recipientName)
                         .font(.headline)
                         .foregroundColor(.white)
                     
@@ -111,7 +151,7 @@ struct ClientChatDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(hex: "0D0F14"))
+        .background(FitConnectColors.backgroundDark)
         .overlay(
             Rectangle()
                 .frame(height: 0.5)
@@ -123,7 +163,7 @@ struct ClientChatDetailView: View {
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "3C9CFF")))
+                .progressViewStyle(CircularProgressViewStyle(tint: FitConnectColors.accentCyan))
             Text("Loading conversation...")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
@@ -135,7 +175,7 @@ struct ClientChatDetailView: View {
         VStack(spacing: 24) {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.system(size: 48))
-                .foregroundColor(Color(hex: "3C9CFF"))
+                .foregroundColor(FitConnectColors.accentCyan)
             
             Text("Start your conversation!")
                 .font(.title2)
@@ -150,15 +190,20 @@ struct ClientChatDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    private var messageListView: some View {
+    
+    private var messagesView: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(viewModel.messages) { message in
-                        ClientMessageBubbleView(
+                    ForEach(messages) { message in
+                        MessageBubbleView(
                             message: message,
-                            isFromCurrentUser: message.senderId == session.currentUserId
+                            isFromCurrentUser: message.senderId == session.currentUserId,
+                            onSnapTap: {
+                                Task {
+                                    await handleSnapTap(message)
+                                }
+                            }
                         )
                         .id(message.id)
                     }
@@ -166,19 +211,16 @@ struct ClientChatDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
             }
-            .onChange(of: viewModel.messages.count) { _ in
-                if let lastMessageId = viewModel.messages.last?.id {
+            .onChange(of: messages.count) { _ in
+                if let lastMessageId = messages.last?.id {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                         proxy.scrollTo(lastMessageId, anchor: .bottom)
                     }
                 }
             }
-            .onTapGesture {
-                hideKeyboard()
-            }
         }
     }
-
+    
     private var messageInputView: some View {
         VStack(spacing: 0) {
             Rectangle()
@@ -186,7 +228,40 @@ struct ClientChatDetailView: View {
                 .frame(height: 0.5)
             
             HStack(spacing: 12) {
-                TextField("Type a message…", text: $viewModel.newMessageText)
+                // Attachment button
+                Button {
+                    showAttachmentOptions = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(FitConnectColors.accentCyan)
+                }
+                .confirmationDialog("Send...", isPresented: $showAttachmentOptions) {
+                    Button("Open Camera") {
+                        isSnapMode = false
+                        checkCameraPermissionAndOpen()
+                    }
+                    
+                    Button("Select from Gallery") {
+                        showingPhotoLibrary = true
+                    }
+                    
+                    Button("Record Video") {
+                        checkCameraPermissionAndOpenVideo()
+                    }
+                    
+                    Button("Select Video from Gallery") {
+                        showingVideoLibrary = true
+                    }
+                    
+                    Button("One-Time Snap") {
+                        showingSnapLibrary = true
+                    }
+                    
+                    Button("Cancel", role: .cancel) {}
+                }
+                
+                TextField("Type a message…", text: $newMessageText)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color.gray.opacity(0.2))
@@ -195,7 +270,7 @@ struct ClientChatDetailView: View {
 
                 Button {
                     Task {
-                        await viewModel.sendMessage()
+                        await sendTextMessage()
                     }
                 } label: {
                     Image(systemName: "paperplane.fill")
@@ -205,289 +280,295 @@ struct ClientChatDetailView: View {
                         .background(
                             Circle()
                                 .fill(
-                                    viewModel.newMessageText.trimmingCharacters(in: .whitespaces).isEmpty
+                                    newMessageText.trimmingCharacters(in: .whitespaces).isEmpty
                                         ? Color.gray.opacity(0.3)
-                                        : Color(hex: "3C9CFF")
+                                        : FitConnectColors.accentCyan
                                 )
                         )
                         .scaleEffect(
-                            viewModel.newMessageText.trimmingCharacters(in: .whitespaces).isEmpty
+                            newMessageText.trimmingCharacters(in: .whitespaces).isEmpty
                                 ? 0.9 : 1.0
                         )
                 }
-                .disabled(viewModel.newMessageText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(newMessageText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .padding(.bottom, safeAreaBottomInset())
-            .background(Color(hex: "0D0F14"))
+            .background(FitConnectColors.backgroundDark)
         }
-    }
-}
-
-struct ClientMessageBubbleView: View {
-    let message: ChatMessage
-    let isFromCurrentUser: Bool
-
-    var body: some View {
-        HStack {
-            if isFromCurrentUser {
-                Spacer()
-            }
-            
-            VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-                Text(message.text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .foregroundColor(.white)
-                    .background(
-                        backgroundGradient
-                            .cornerRadius(20, corners: cornerMask)
-                    )
-                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: isFromCurrentUser ? .trailing : .leading)
-                
-                Text(timeString)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                    .padding(.horizontal, 4)
-            }
-            
-            if !isFromCurrentUser {
-                Spacer()
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-    
-    private var backgroundGradient: LinearGradient {
-        if isFromCurrentUser {
-            return LinearGradient(
-                colors: [Color(hex: "42A5F5"), Color(hex: "1E88E5")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            return LinearGradient(
-                colors: [Color(hex: "AB47BC"), Color(hex: "8E24AA")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-    }
-    
-    private var cornerMask: UIRectCorner {
-        if isFromCurrentUser {
-            return [.topLeft, .topRight, .bottomLeft]
-        } else {
-            return [.topLeft, .topRight, .bottomRight]
-        }
-    }
-    
-    private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: message.timestamp.dateValue())
-    }
-}
-
-@MainActor
-class ClientChatDetailViewModel: ObservableObject {
-    @Published var messages: [ChatMessage] = []
-    @Published var newMessageText: String = ""
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var showSendError: Bool = false
-    @Published var actualDietitianName: String = ""
-    
-    let chatId: String
-    private var db = Firestore.firestore()
-    private var messageListener: ListenerRegistration?
-    var sessionStore: SessionStore
-    private var chatDocumentRef: DocumentReference
-    private var currentClientUid: String { sessionStore.currentUserId ?? "" }
-
-    init(chatId: String, sessionStore: SessionStore) {
-        self.chatId = chatId
-        self.sessionStore = sessionStore
-        self.chatDocumentRef = db.collection("chats").document(chatId)
-        
-        fetchDietitianName()
-    }
-
-    deinit {
-        messageListener?.remove()
-    }
-    
-    private func fetchDietitianName() {
-        chatDocumentRef.getDocument { [weak self] snapshot, error in
-            guard let self = self else { return }
-            
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("[ClientChatDetailVM] Error fetching dietitian name: \(error.localizedDescription)")
-                    self.errorMessage = "Could not load dietitian details."
-                    return
-                }
-                if let data = snapshot?.data() {
-                    if let participants = data["participantIds"] as? [String],
-                       let participantNames = data["participantNames"] as? [String: String] {
-                        let dietitianUID = participants.first(where: { $0 != self.currentClientUid }) ?? ""
-                        self.actualDietitianName = participantNames[dietitianUID] ?? "Dietitian"
+        .sheet(isPresented: $showCamera) {
+            CameraCaptureView { image in
+                Task {
+                    if isSnapMode {
+                        print("[Chat] Camera captured snap image")
+                        await handleSnapCapture(image)
+                        isSnapMode = false
                     } else {
-                        self.actualDietitianName = data["dietitianName"] as? String ?? "Dietitian"
-                    }
-                } else {
-                    self.actualDietitianName = "Dietitian"
-                }
-            }
-        }
-    }
-
-    func startListeningForMessages() {
-        isLoading = true
-        print("[ClientChatDetailVM] Starting to listen for messages in chat: \(chatId)")
-        
-        messageListener = db.collection("chats").document(chatId).collection("messages")
-            .order(by: "timestamp", descending: false)
-            .addSnapshotListener { [weak self] querySnapshot, error in
-                guard let self = self else { return }
-                
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                    
-                    if let error = error {
-                        self.errorMessage = "Error fetching messages: \(error.localizedDescription)"
-                        print("[ClientChatDetailVM] Error listening for messages: \(error.localizedDescription)")
-                        return
-                    }
-
-                    guard let documents = querySnapshot?.documents else {
-                        print("[ClientChatDetailVM] No message documents found - setting empty messages array.")
-                        self.messages = []
-                        return
-                    }
-
-                    let newMessages = documents.compactMap { document -> ChatMessage? in
-                        return ChatMessage(documentID: document.documentID, dictionary: document.data())
-                    }
-                    
-                    print("[ClientChatDetailVM] Found \(documents.count) message documents, parsed \(newMessages.count) messages")
-                    
-                    if self.messages != newMessages {
-                        self.messages = newMessages
-                        print("[ClientChatDetailVM] Updated messages count: \(self.messages.count)")
-                    }
-                    
-                    Task {
-                        for message in self.messages where message.senderId != self.currentClientUid && !message.isReadByRecipient {
-                            let messageId = message.id
-                            await self.markMessageAsReadByClient(messageId: messageId)
-                        }
+                        print("[Chat] Camera captured regular image")
+                        await handleImageCapture(image)
                     }
                 }
             }
-    }
-
-    func sendMessage() async {
-        let trimmed = newMessageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            print("[ClientChatDetailVM] Cannot send empty message")
-            return
         }
-        
-        guard let senderId = sessionStore.currentUserId,
-              let senderUser = sessionStore.currentUser else {
-            await MainActor.run {
-                showSendError = true
-                errorMessage = "User information not available to send message."
-            }
-            return
-        }
-
-        let senderName = senderUser.fullName
-
-        guard let chatParticipants = await getChatParticipants(),
-              chatParticipants.count == 2 else {
-            await MainActor.run {
-                showSendError = true
-                errorMessage = "Could not determine chat participants."
-            }
-            return
-        }
-        
-        let recipientId = chatParticipants.first(where: { $0 != senderId }) ?? ""
-        
-        let newMessageRef = db.collection("chats").document(chatId).collection("messages").document()
-        let message = ChatMessage(
-            id: newMessageRef.documentID,
-            chatId: chatId,
-            senderId: senderId,
-            senderName: senderName,
-            text: trimmed,
-            timestamp: Timestamp(date: Date()),
-            isReadByRecipient: false,
-            senderAvatarURL: senderUser.photoURL
-        )
-        let messageData = message.toDictionary()
-
-        do {
-            try await newMessageRef.setData(messageData)
-            
-            try await chatDocumentRef.updateData([
-                "lastMessageText": trimmed,
-                "lastMessageTimestamp": FieldValue.serverTimestamp(),
-                "lastMessageSenderId": senderId,
-                "unreadCounts.\(senderId)": 0,
-                "unreadCounts.\(recipientId)": FieldValue.increment(Int64(1))
-            ])
-            
-            await MainActor.run {
-                self.newMessageText = ""
-            }
-        } catch {
-            await MainActor.run {
-                self.showSendError = true
-                self.errorMessage = "Failed to send message: \(error.localizedDescription)"
+        .sheet(isPresented: $showVideoRecorder) {
+            VideoRecorderView { videoUrl in
+                Task {
+                    print("[Chat] Video recorded: \(videoUrl)")
+                    await handleVideoCapture(videoUrl)
+                }
             }
         }
     }
     
-    private func getChatParticipants() async -> [String]? {
-        do {
-            let documentSnapshot = try await chatDocumentRef.getDocument()
-            guard let data = documentSnapshot.data(),
-                  let participants = data["participantIds"] as? [String] else {
-                return nil
+    // MARK: - Message Handling
+    
+    private func loadMessages() {
+        Task {
+            do {
+                for try await messageList in messagingService.getMessages(with: recipientId) {
+                    await MainActor.run {
+                        self.messages = messageList
+                        self.isLoading = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.showError = true
+                    self.isLoading = false
+                }
             }
-            return participants
-        } catch {
-            print("[ClientChatDetailVM] Error fetching chat participants: \(error.localizedDescription)")
-            return nil
         }
     }
-
-    func markChatAsReadByClient() async {
-        guard let clientId = sessionStore.currentUserId else { return }
+    
+    private func sendTextMessage() async {
+        let text = newMessageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        
+        newMessageText = ""
+        
         do {
-            try await chatDocumentRef.updateData(["unreadCounts.\(clientId)": 0])
+            try await messagingService.sendTextMessage(
+                to: recipientId,
+                text: text,
+                senderName: session.currentUser?.fullName ?? "You",
+                senderAvatarUrl: session.currentUser?.photoURL
+            )
         } catch {
-            print("[ClientChatDetailVM] Error marking chat as read by client: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
+            showError = true
         }
     }
-
-    private func markMessageAsReadByClient(messageId: String) async {
-        let messageRef = db.collection("chats").document(chatId).collection("messages").document(messageId)
+    
+    private func handlePhotoSelection(_ item: PhotosPickerItem) async {
+        print("[Chat] Starting photo selection handling from gallery")
         do {
-            try await messageRef.updateData(["isReadByRecipient": true])
+            if let data = try await item.loadTransferable(type: Data.self) {
+                print("[Chat] Photo data loaded successfully, size: \(data.count) bytes")
+                if let image = UIImage(data: data) {
+                    print("[Chat] UIImage created successfully")
+                    try await messagingService.sendPhotoMessage(
+                        to: recipientId,
+                        image: image,
+                        senderName: session.currentUser?.fullName ?? "You",
+                        senderAvatarUrl: session.currentUser?.photoURL
+                    )
+                    print("[Chat] Photo message sent successfully")
+                } else {
+                    print("[Chat] Failed to create UIImage from data")
+                    await MainActor.run {
+                        errorMessage = "Failed to process selected image"
+                        showError = true
+                    }
+                }
+            } else {
+                print("[Chat] Failed to load photo data")
+                await MainActor.run {
+                    errorMessage = "Failed to load selected image"
+                    showError = true
+                }
+            }
         } catch {
-            print("[ClientChatDetailVM] Error marking message \(messageId) as read by client: \(error.localizedDescription)")
+            print("[Chat] Error in photo selection: \(error)")
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
         }
     }
-}
-
-private func hideKeyboard() {
-    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    
+    private func handleVideoSelection(_ item: PhotosPickerItem) async {
+        print("[Chat] Starting video selection handling from gallery")
+        do {
+            if let videoURL = try await item.loadTransferable(type: VideoURLTransferable.self) {
+                print("[Chat] Video URL loaded: \(videoURL.url)")
+                try await messagingService.sendVideoMessage(
+                    to: recipientId,
+                    videoUrl: videoURL.url,
+                    senderName: session.currentUser?.fullName ?? "You",
+                    senderAvatarUrl: session.currentUser?.photoURL
+                )
+                print("[Chat] Video message sent successfully")
+            } else {
+                print("[Chat] Failed to load video URL")
+                await MainActor.run {
+                    errorMessage = "Failed to load selected video"
+                    showError = true
+                }
+            }
+        } catch {
+            print("[Chat] Error in video selection: \(error)")
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func handleSnapPhotoSelection(_ item: PhotosPickerItem) async {
+        print("[Chat] Starting snap photo selection handling from gallery")
+        do {
+            if let data = try await item.loadTransferable(type: Data.self) {
+                print("[Chat] Snap photo data loaded successfully")
+                if let image = UIImage(data: data) {
+                    print("[Chat] Snap UIImage created successfully")
+                    try await messagingService.sendSnapMessage(
+                        to: recipientId,
+                        image: image,
+                        senderName: session.currentUser?.fullName ?? "You",
+                        senderAvatarUrl: session.currentUser?.photoURL
+                    )
+                    print("[Chat] Snap message sent successfully")
+                } else {
+                    await MainActor.run {
+                        errorMessage = "Failed to process selected snap image"
+                        showError = true
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    errorMessage = "Failed to load selected snap image"
+                    showError = true
+                }
+            }
+        } catch {
+            print("[Chat] Error in snap photo selection: \(error)")
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func handleImageCapture(_ image: UIImage) async {
+        do {
+            try await messagingService.sendPhotoMessage(
+                to: recipientId,
+                image: image,
+                senderName: session.currentUser?.fullName ?? "You",
+                senderAvatarUrl: session.currentUser?.photoURL
+            )
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func handleSnapCapture(_ image: UIImage) async {
+        do {
+            try await messagingService.sendSnapMessage(
+                to: recipientId,
+                image: image,
+                senderName: session.currentUser?.fullName ?? "You",
+                senderAvatarUrl: session.currentUser?.photoURL
+            )
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func handleVideoCapture(_ videoUrl: URL) async {
+        do {
+            try await messagingService.sendVideoMessage(
+                to: recipientId,
+                videoUrl: videoUrl,
+                senderName: session.currentUser?.fullName ?? "You",
+                senderAvatarUrl: session.currentUser?.photoURL
+            )
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func handleSnapTap(_ message: Message) async {
+        guard message.type == .snap, !(message.isConsumed ?? false) else { return }
+        
+        do {
+            try await messagingService.markSnapAsConsumed(message)
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+    
+    private func checkCameraPermissionAndOpen() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showCamera = true
+                    } else {
+                        errorMessage = "Camera access is required to take photos"
+                        showError = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            errorMessage = "Camera access is denied. Please enable it in Settings."
+            showError = true
+        @unknown default:
+            errorMessage = "Camera access is not available"
+            showError = true
+        }
+    }
+    
+    private func checkCameraPermissionAndOpenVideo() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            showVideoRecorder = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showVideoRecorder = true
+                    } else {
+                        errorMessage = "Camera access is required to record videos"
+                        showError = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            errorMessage = "Camera access is denied. Please enable it in Settings."
+            showError = true
+        @unknown default:
+            errorMessage = "Camera access is not available"
+            showError = true
+        }
+    }
 }
 
 private func safeAreaBottomInset() -> CGFloat {
@@ -504,9 +585,9 @@ struct ClientChatDetailView_Previews: PreviewProvider {
     static var previews: some View {
         let mockSession = SessionStore.previewStore(isLoggedIn: true, role: "client")
         return ClientChatDetailView(
-            chatId: "preview_chat_id",
-            dietitianName: "Dr. Sarah Adams",
-            session: mockSession
+            recipientId: "dietitian123",
+            recipientName: "Dr. Sarah Adams",
+            recipientAvatarUrl: nil
         )
         .environmentObject(mockSession)
         .preferredColorScheme(.dark)

@@ -16,48 +16,91 @@ struct DietitianDashboardView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header
-                    Text("Dashboard")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.top, 40)
-                        .padding(.bottom, 30)
+                    // Header with dietitian info
+                    VStack(spacing: 12) {
+                        if let dietitianName = viewModel.dietitianName {
+                            HStack {
+                                // Profile image
+                                AsyncImage(url: viewModel.dietitianPhotoURL) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                } placeholder: {
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.3))
+                                        .overlay(
+                                            Image(systemName: "person.fill")
+                                                .font(.title2)
+                                                .foregroundColor(.white.opacity(0.6))
+                                        )
+                                }
+                                .frame(width: 50, height: 50)
+                                .clipShape(Circle())
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Welcome back,")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.white.opacity(0.8))
+                                    
+                                    Text(dietitianName)
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
+                    .padding(.top, 40)
                     
                     // Metric Cards
                     HStack(spacing: 12) {
                         DashboardMetricCard(
                             icon: "person.3.fill",
                             count: "\(viewModel.activeClientsCount)",
-                            label: "Active Clients"
+                            label: "Active Clients",
+                            isLoading: viewModel.isLoadingClients,
+                            accentColor: Color(hex: "#22C55E") ?? .green
                         )
                         
                         DashboardMetricCard(
                             icon: "calendar.badge.clock",
                             count: "\(viewModel.todayAppointmentsCount)",
-                            label: "Appointments"
+                            label: "Today's Appointments",
+                            isLoading: viewModel.isLoadingAppointments,
+                            accentColor: Color(hex: "#3B82F6") ?? .blue
                         )
                         
                         DashboardMetricCard(
                             icon: "bubble.left.and.bubble.right.fill",
                             count: "\(viewModel.unreadMessagesCount)",
-                            label: "Messages"
+                            label: "Unread Messages",
+                            isLoading: viewModel.isLoadingMessages,
+                            accentColor: Color(hex: "#F59E0B") ?? .orange
                         )
                     }
                     .padding(.horizontal, 16)
                     
                     // Today's Appointments Panel
-                    TodaysAppointmentsPanel(appointments: viewModel.todaysAppointments)
-                        .padding(.horizontal, 16)
-                        .opacity(showContent ? 1.0 : 0.0)
-                        .offset(y: showContent ? 0 : 30)
-                        .animation(.easeOut(duration: 0.8).delay(0.2), value: showContent)
+                    TodaysAppointmentsPanel(
+                        appointments: viewModel.todaysAppointments,
+                        isLoading: viewModel.isLoadingAppointments
+                    )
+                    .padding(.horizontal, 16)
+                    .opacity(showContent ? 1.0 : 0.0)
+                    .offset(y: showContent ? 0 : 30)
+                    .animation(.easeOut(duration: 0.8).delay(0.2), value: showContent)
                     
                     // Client Progress Overview Panel
-                    ClientProgressOverviewPanel(progressSummaries: viewModel.clientProgressSummaries)
-                        .padding(.horizontal, 16)
-                        .opacity(showContent ? 1.0 : 0.0)
-                        .offset(y: showContent ? 0 : 30)
-                        .animation(.easeOut(duration: 0.8).delay(0.4), value: showContent)
+                    ClientProgressOverviewPanel(
+                        progressSummaries: viewModel.clientProgressSummaries,
+                        isLoading: viewModel.isLoadingClients
+                    )
+                    .padding(.horizontal, 16)
+                    .opacity(showContent ? 1.0 : 0.0)
+                    .offset(y: showContent ? 0 : 30)
+                    .animation(.easeOut(duration: 0.8).delay(0.4), value: showContent)
                     
                     Spacer(minLength: 100)
                 }
@@ -75,11 +118,15 @@ struct DietitianDashboardView: View {
                 showContent = true
             }
         }
+        .onDisappear {
+            viewModel.cleanup()
+        }
     }
 }
 
 struct ClientProgressOverviewPanel: View {
     let progressSummaries: [ClientProgressSummary]
+    let isLoading: Bool
     @EnvironmentObject var session: SessionStore
     
     var body: some View {
@@ -96,10 +143,27 @@ struct ClientProgressOverviewPanel: View {
             .padding(.bottom, 12)
             
             // Content
-            if progressSummaries.isEmpty {
+            if isLoading {
+                // Loading State
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Loading client progress...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else if progressSummaries.isEmpty {
                 // Empty State
                 VStack(spacing: 12) {
+                    Image(systemName: "person.3.sequence")
+                        .font(.system(size: 32))
+                        .foregroundColor(.gray)
                     Text("No clients with progress data")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                    Text("Client progress will appear here once they start logging health data")
                         .font(.system(size: 14))
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -144,33 +208,25 @@ struct ClientProgressCard: View {
     var body: some View {
         VStack(spacing: 8) {
             // Avatar
-            Circle()
-                .fill(Color.gray.opacity(0.6))
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Group {
-                        if let avatarURL = summary.clientAvatarURL, !avatarURL.isEmpty {
-                            AsyncImage(url: URL(string: avatarURL)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            } placeholder: {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                            .clipShape(Circle())
-                        } else {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                )
+            AsyncImage(url: summary.clientAvatarURL.flatMap(URL.init)) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                Circle()
+                    .fill(Color.gray.opacity(0.6))
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white.opacity(0.8))
+                    )
+            }
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
             
             // Client Name
             Text(summary.clientName.components(separatedBy: " ").first ?? summary.clientName)
-                .font(.system(size: 14))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.white)
                 .lineLimit(1)
             
@@ -181,13 +237,13 @@ struct ClientProgressCard: View {
                     .foregroundColor(.gray)
                 
                 Text(summary.lastUpdateString)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 10))
                     .foregroundColor(.gray)
             }
             
             // Secondary Metric (BMI or Body Fat)
             Text(summary.displaySecondaryMetric)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 10))
                 .foregroundColor(.gray)
         }
         .frame(width: 100)
@@ -200,6 +256,7 @@ struct ClientProgressCard: View {
 
 struct TodaysAppointmentsPanel: View {
     let appointments: [Appointment]
+    let isLoading: Bool
     @EnvironmentObject var session: SessionStore
     
     var body: some View {
@@ -210,6 +267,16 @@ struct TodaysAppointmentsPanel: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.white)
                 Spacer()
+                
+                if !appointments.isEmpty {
+                    Text("\(appointments.count)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "#22C55E"))
+                        .cornerRadius(12)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -223,29 +290,42 @@ struct TodaysAppointmentsPanel: View {
                 .padding(.bottom, 16)
             
             // Content
-            if appointments.isEmpty {
+            if isLoading {
+                // Loading State
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Loading appointments...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else if appointments.isEmpty {
                 // Empty State
                 VStack(spacing: 12) {
-                    Text("No appointments scheduled for today")
-                        .font(.system(size: 16))
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 32))
                         .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
+                    Text("No appointments today")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                    Text("Enjoy your free day!")
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
                 // Appointments List
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(appointments.sorted { $0.startTime.dateValue() < $1.startTime.dateValue() }) { appointment in
-                            DashboardAppointmentRowView(appointment: appointment)
-                                .environmentObject(session)
-                        }
+                LazyVStack(spacing: 12) {
+                    ForEach(appointments.sorted { $0.startTime.dateValue() < $1.startTime.dateValue() }) { appointment in
+                        DashboardAppointmentRowView(appointment: appointment)
+                            .environmentObject(session)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                 }
-                .frame(maxHeight: 300) // Responsive height limit
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
         }
         .background(Color(hex: "#1C1C1E"))
@@ -267,24 +347,42 @@ struct DashboardAppointmentRowView: View {
             // This would be implemented based on your navigation structure
         }) {
             HStack(spacing: 16) {
+                // Time indicator
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(appointment.shortTimeString)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(appointment.durationString)
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 70, alignment: .leading)
+                
                 // Client Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(appointment.clientName ?? "Unknown Client")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
                     
-                    Text(appointment.timeRangeString)
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                    if let notes = appointment.notes, !notes.isEmpty {
+                        Text(notes)
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    }
                 }
                 
                 Spacer()
                 
                 // Status
                 Text(statusText)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(statusColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.1))
+                    .cornerRadius(8)
                 
                 // Chat Icon
                 Button(action: {
@@ -326,18 +424,12 @@ struct DashboardAppointmentRowView: View {
     
     private var statusColor: Color {
         switch appointment.status {
-        case .scheduled, .completed:
+        case .scheduled, .completed, .confirmed, .accepted:
             return .green
-        case .cancelled, .noShow:
-            return .orange
+        case .cancelled, .noShow, .rejected:
+            return .red
         case .pending:
             return .orange
-        case .confirmed:
-            return .green
-        case .accepted:
-            return .green
-        case .rejected:
-            return .red
         }
     }
     
@@ -355,118 +447,250 @@ class DietitianDashboardViewModel: ObservableObject {
     @Published var unreadMessagesCount: Int = 0
     @Published var todaysAppointments: [Appointment] = []
     @Published var clientProgressSummaries: [ClientProgressSummary] = []
+    @Published var dietitianName: String?
+    @Published var dietitianPhotoURL: URL?
+    
+    // Loading states
+    @Published var isLoadingClients: Bool = true
+    @Published var isLoadingAppointments: Bool = true
+    @Published var isLoadingMessages: Bool = true
     
     private var firestore = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
-    private let clientProgressService = ClientProgressService.shared
+    private let appointmentService = AppointmentService.shared
     
     func loadDashboardData(dietitianId: String) {
-        loadTodaysAppointments(dietitianId: dietitianId)
-        loadActiveClientsCount(dietitianId: dietitianId)
-        loadUnreadMessagesCount(dietitianId: dietitianId)
-        loadClientProgressSummaries(dietitianId: dietitianId)
+        loadDietitianProfile(dietitianId: dietitianId)
+        setupRealtimeListeners(dietitianId: dietitianId)
     }
     
-    private func loadClientProgressSummaries(dietitianId: String) {
-        // For demo purposes, create sample data
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            let sampleSummaries = [
-                ClientProgressSummary(
-                    clientId: "client1",
-                    clientName: "Anna Mills",
-                    clientAvatarURL: nil,
-                    latestHealthData: HealthData(
-                        userId: "client1",
-                        date: Date(),
-                        weight: 68.5,
-                        height: 165,
-                        bmi: 25.2
-                    ),
-                    lastUpdateDate: Date()
-                ),
-                ClientProgressSummary(
-                    clientId: "client2",
-                    clientName: "Sarah Cooper",
-                    clientAvatarURL: nil,
-                    latestHealthData: HealthData(
-                        userId: "client2",
-                        date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-                        weight: 72.1,
-                        bodyFatPercentage: 24.8
-                    ),
-                    lastUpdateDate: Calendar.current.date(byAdding: .day, value: -2, to: Date())
-                ),
-                ClientProgressSummary(
-                    clientId: "client3",
-                    clientName: "Michael Zhang",
-                    clientAvatarURL: nil,
-                    latestHealthData: nil,
-                    lastUpdateDate: nil
-                )
-            ]
+    private func loadDietitianProfile(dietitianId: String) {
+        firestore.collection("users").document(dietitianId).getDocument { [weak self] document, error in
+            guard let self = self else { return }
             
-            self.clientProgressSummaries = sampleSummaries
+            if let error = error {
+                print("Error loading dietitian profile: \(error)")
+                return
+            }
+            
+            guard let document = document, document.exists, let data = document.data() else {
+                print("Dietitian document not found")
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.dietitianName = data["fullName"] as? String
+                if let photoURLString = data["photoURL"] as? String {
+                    self.dietitianPhotoURL = URL(string: photoURLString)
+                }
+            }
         }
     }
     
-    private func loadTodaysAppointments(dietitianId: String) {
+    private func setupRealtimeListeners(dietitianId: String) {
+        setupClientsListener(dietitianId: dietitianId)
+        setupAppointmentsListener(dietitianId: dietitianId)
+        setupMessagesListener(dietitianId: dietitianId)
+    }
+    
+    private func setupClientsListener(dietitianId: String) {
+        let clientsListener = firestore.collection("dietitians")
+            .document(dietitianId)
+            .collection("clients")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Error listening to clients: \(error)")
+                    DispatchQueue.main.async {
+                        self.isLoadingClients = false
+                    }
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    DispatchQueue.main.async {
+                        self.activeClientsCount = 0
+                        self.isLoadingClients = false
+                    }
+                    return
+                }
+                
+                let clientIds = documents.map { $0.documentID }
+                
+                DispatchQueue.main.async {
+                    self.activeClientsCount = clientIds.count
+                }
+                
+                // Fetch detailed client info for progress summaries
+                self.fetchClientProgressSummaries(clientIds: clientIds)
+            }
+        
+        listeners.append(clientsListener)
+    }
+    
+    private func setupAppointmentsListener(dietitianId: String) {
         let calendar = Calendar.current
         let today = Date()
         let startOfDay = calendar.startOfDay(for: today)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? today
         
-        // For demo purposes, create sample data
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Create sample appointments for today
-            var sampleAppointments: [Appointment] = []
-            
-            // Anna Mills appointment
-            if let startTime = calendar.date(byAdding: .hour, value: 2, to: today),
-               let endTime = calendar.date(byAdding: .hour, value: 1, to: startTime) {
-                let appointment1 = Appointment(
-                    clientId: "anna_mills",
-                    startTime: startTime,
-                    endTime: endTime,
-                    notes: "Meal planning consultation",
-                    status: .scheduled
-                )
-                var appointment1WithData = appointment1
-                appointment1WithData.clientName = "Anna Mills"
-                sampleAppointments.append(appointment1WithData)
+        let appointmentsListener = firestore.collection("dietitians")
+            .document(dietitianId)
+            .collection("appointments")
+            .whereField("startTime", isGreaterThanOrEqualTo: Timestamp(date: startOfDay))
+            .whereField("startTime", isLessThan: Timestamp(date: endOfDay))
+            .order(by: "startTime")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Error listening to appointments: \(error)")
+                    DispatchQueue.main.async {
+                        self.isLoadingAppointments = false
+                    }
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    DispatchQueue.main.async {
+                        self.todaysAppointments = []
+                        self.todayAppointmentsCount = 0
+                        self.isLoadingAppointments = false
+                    }
+                    return
+                }
+                
+                let appointments = documents.compactMap { doc -> Appointment? in
+                    do {
+                        var appointment = try doc.data(as: Appointment.self)
+                        appointment.id = doc.documentID
+                        return appointment
+                    } catch {
+                        print("Error decoding appointment: \(error)")
+                        return nil
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    self.todaysAppointments = appointments
+                    self.todayAppointmentsCount = appointments.count
+                    self.isLoadingAppointments = false
+                }
             }
-            
-            // Stephanie Cooper appointment
-            if let startTime = calendar.date(byAdding: .hour, value: 4, to: today),
-               let endTime = calendar.date(byAdding: .minute, value: 45, to: startTime) {
-                let appointment2 = Appointment(
-                    clientId: "stephanie_cooper",
-                    startTime: startTime,
-                    endTime: endTime,
-                    notes: "Follow-up session",
-                    status: .scheduled
-                )
-                var appointment2WithData = appointment2
-                appointment2WithData.clientName = "Stephanie Cooper"
-                sampleAppointments.append(appointment2WithData)
+        
+        listeners.append(appointmentsListener)
+    }
+    
+    private func setupMessagesListener(dietitianId: String) {
+        // Listen for messages where this dietitian is the recipient and read = false
+        let messagesListener = firestore.collectionGroup("messages")
+            .whereField("recipientId", isEqualTo: dietitianId)
+            .whereField("read", isEqualTo: false)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Error listening to messages: \(error)")
+                    DispatchQueue.main.async {
+                        self.isLoadingMessages = false
+                    }
+                    return
+                }
+                
+                let unreadCount = snapshot?.documents.count ?? 0
+                
+                DispatchQueue.main.async {
+                    self.unreadMessagesCount = unreadCount
+                    self.isLoadingMessages = false
+                }
             }
+        
+        listeners.append(messagesListener)
+    }
+    
+    private func fetchClientProgressSummaries(clientIds: [String]) {
+        guard !clientIds.isEmpty else {
+            DispatchQueue.main.async {
+                self.clientProgressSummaries = []
+                self.isLoadingClients = false
+            }
+            return
+        }
+        
+        let group = DispatchGroup()
+        var summaries: [ClientProgressSummary] = []
+        
+        for clientId in clientIds {
+            group.enter()
             
-            self.todaysAppointments = sampleAppointments
-            self.todayAppointmentsCount = sampleAppointments.count
+            // Fetch client basic info
+            firestore.collection("users").document(clientId).getDocument { [weak self] document, error in
+                defer { group.leave() }
+                
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Error fetching client \(clientId): \(error)")
+                    return
+                }
+                
+                guard let document = document,
+                      document.exists,
+                      let data = document.data() else {
+                    print("Client document \(clientId) not found")
+                    return
+                }
+                
+                let clientName = data["fullName"] as? String ?? "Unknown Client"
+                let avatarURL = data["photoURL"] as? String
+                
+                // Fetch latest health data for this client
+                self.firestore.collection("users")
+                    .document(clientId)
+                    .collection("healthData")
+                    .order(by: "date", descending: true)
+                    .limit(to: 1)
+                    .getDocuments { healthSnapshot, healthError in
+                        var latestHealthData: HealthData?
+                        var lastUpdateDate: Date?
+                        
+                        if let healthDoc = healthSnapshot?.documents.first {
+                            do {
+                                latestHealthData = try healthDoc.data(as: HealthData.self)
+                                lastUpdateDate = latestHealthData?.date.dateValue()
+                            } catch {
+                                print("Error decoding health data: \(error)")
+                            }
+                        }
+                        
+                        let summary = ClientProgressSummary(
+                            clientId: clientId,
+                            clientName: clientName,
+                            clientAvatarURL: avatarURL,
+                            latestHealthData: latestHealthData,
+                            lastUpdateDate: lastUpdateDate
+                        )
+                        
+                        summaries.append(summary)
+                    }
+            }
+        }
+        
+        group.notify(queue: .main) {
+            // Sort by last update date (most recent first)
+            self.clientProgressSummaries = summaries.sorted { first, second in
+                guard let firstDate = first.lastUpdateDate else { return false }
+                guard let secondDate = second.lastUpdateDate else { return true }
+                return firstDate > secondDate
+            }
+            self.isLoadingClients = false
         }
     }
     
-    private func loadActiveClientsCount(dietitianId: String) {
-        // Mock data for demo
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.activeClientsCount = 12
-        }
-    }
-    
-    private func loadUnreadMessagesCount(dietitianId: String) {
-        // Mock data for demo
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            self.unreadMessagesCount = 3
-        }
+    func cleanup() {
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
     }
     
     deinit {
@@ -478,18 +702,27 @@ struct DashboardMetricCard: View {
     let icon: String
     let count: String
     let label: String
+    let isLoading: Bool
+    let accentColor: Color
     
     var body: some View {
         VStack(spacing: 20) {
             // Icon
             Image(systemName: icon)
                 .font(.system(size: 28))
-                .foregroundColor(Color(red: 0.6, green: 0.6, blue: 0.65))
+                .foregroundColor(accentColor)
             
             // Count
-            Text(count)
-                .font(.system(size: 56, weight: .bold))
-                .foregroundColor(.white)
+            if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: accentColor))
+                    .scaleEffect(0.8)
+            } else {
+                Text(count)
+                    .font(.system(size: 56, weight: .bold))
+                    .foregroundColor(.white)
+                    .animation(.easeInOut(duration: 0.3), value: count)
+            }
             
             // Label
             Text(label)
@@ -498,12 +731,21 @@ struct DashboardMetricCard: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             
-            // Progress bar (empty state)
+            // Progress bar with accent color
             Rectangle()
-                .fill(Color(red: 0.25, green: 0.25, blue: 0.3))
+                .fill(accentColor.opacity(0.3))
                 .frame(height: 4)
                 .frame(maxWidth: .infinity)
                 .cornerRadius(2)
+                .overlay(
+                    Rectangle()
+                        .fill(accentColor)
+                        .frame(height: 4)
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(2)
+                        .opacity(isLoading ? 0 : 1)
+                        .animation(.easeInOut(duration: 0.5), value: isLoading)
+                )
         }
         .padding(.vertical, 28)
         .padding(.horizontal, 16)
@@ -512,12 +754,22 @@ struct DashboardMetricCard: View {
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .stroke(
-                    Color.purple.opacity(0.8),
+                    accentColor.opacity(0.6),
                     lineWidth: 1.5
                 )
                 .background(
                     RoundedRectangle(cornerRadius: 24)
                         .fill(Color(red: 0.12, green: 0.12, blue: 0.18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [accentColor.opacity(0.05), Color.clear],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
                 )
         )
     }

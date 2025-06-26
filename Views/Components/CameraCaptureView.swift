@@ -2,17 +2,15 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
-struct VideoRecorderView: UIViewControllerRepresentable {
-    let onVideoRecorded: (URL) -> Void
+struct CameraCaptureView: UIViewControllerRepresentable {
+    let onImageCaptured: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
     
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
         picker.sourceType = .camera
-        picker.mediaTypes = ["public.movie"]
-        picker.videoQuality = .typeMedium
-        picker.videoMaximumDuration = 60 // 1 minute max
+        picker.allowsEditing = true
         return picker
     }
     
@@ -23,15 +21,15 @@ struct VideoRecorderView: UIViewControllerRepresentable {
     }
     
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: VideoRecorderView
+        let parent: CameraCaptureView
         
-        init(_ parent: VideoRecorderView) {
+        init(_ parent: CameraCaptureView) {
             self.parent = parent
         }
         
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let videoUrl = info[.mediaURL] as? URL {
-                parent.onVideoRecorded(videoUrl)
+            if let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
+                parent.onImageCaptured(image)
             }
             parent.dismiss()
         }

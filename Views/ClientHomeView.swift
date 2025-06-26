@@ -7,6 +7,7 @@ import FirebaseAuth
 struct ClientHomeView: View {
     @EnvironmentObject var session: SessionStore
     @StateObject private var healthKitManager = HealthKitManager.shared
+    @StateObject private var progressService = TodaysProgressService()
     @State private var showChatDetail = false
     @State private var currentChatId: String?
     @State private var showHealthKitBanner = true
@@ -16,22 +17,11 @@ struct ClientHomeView: View {
     @State private var isCreatingChat = false
     @State private var showError = false
     @State private var errorMessage = ""
-    @State private var chatSummaryForSheet: ChatSummary? = nil
     @State private var showingScanMeal = false
     @State private var showingLogMeal = false
     @State private var showingAppointments = false
     @State private var showingAnalytics = false
 
-    private let chatService = ChatService.shared
-    
-    private let motivationalQuotes = [
-        "Every step counts towards your goals!",
-        "Your health journey starts today!",
-        "Small changes lead to big results!",
-        "You're stronger than you think!",
-        "Progress, not perfection!"
-    ]
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -64,6 +54,10 @@ struct ClientHomeView: View {
             print("[ClientHomeView] Current user ID: \(session.currentUserId ?? "nil")")
             print("[ClientHomeView] Expert ID: \(session.currentUser?.expertId ?? "nil")")
             print("[ClientHomeView] Assigned dietitian ID: \(session.assignedDietitianId)")
+            
+            if let userId = session.currentUserId {
+                progressService.startListening(for: userId)
+            }
         }
         .sheet(isPresented: $showingScanMeal) {
             ScanMealView()
@@ -98,21 +92,8 @@ struct ClientHomeView: View {
         } message: {
             Text(errorMessage)
         }
-        .sheet(item: $chatSummaryForSheet, onDismiss: {
-            // Optionally reset any state if needed when sheet is dismissed
-        }) { summary in
-            NavigationStack {
-                ClientChatDetailView(
-                    chatId: summary.id,
-                    dietitianName: summary.otherParticipant(currentUserId: session.currentUserId ?? "")?.fullName ?? "Dietitian",
-                    dietitianAvatarURL: summary.otherParticipant(currentUserId: session.currentUserId ?? "")?.photoURL,
-                    session: session
-                )
-                .environmentObject(session)
-                .navigationBarHidden(true)
-            }
-            .presentationDetents([.large])
-            .presentationDragIndicator(.hidden)
+        .onDisappear {
+            progressService.stopListening()
         }
     }
     
@@ -181,7 +162,7 @@ struct ClientHomeView: View {
                             ),
                             lineWidth: 2
                         )
-                    )
+                )
         )
     }
     
@@ -222,105 +203,67 @@ struct ClientHomeView: View {
         )
     }
     
+    private let motivationalQuotes = [
+        "Every step counts towards your goals!",
+        "Your health journey starts today!",
+        "Small changes lead to big results!",
+        "You're stronger than you think!",
+        "Progress, not perfection!"
+    ]
+    
     private var todaysProgressSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with loading indicator
             HStack {
                 Text("Today's Progress")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Spacer()
                 
-                HStack(spacing: 8) {
-                    ForEach(0..<3) { index in
-                        Circle()
-                            .fill(index == selectedProgressCard ? Color.white : Color.white.opacity(0.3))
-                            .frame(width: 8, height: 8)
+                if progressService.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "#8F3FFF")))
+                        .scaleEffect(0.8)
+                } else {
+                    // Custom page indicator
+                    HStack(spacing: 8) {
+                        ForEach(0..<4) { index in
+                            Circle()
+                                .fill(index == selectedProgressCard ? Color(hex: "#8F3FFF") : Color.white.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(index == selectedProgressCard ? 1.2 : 1.0)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: selectedProgressCard)
+                        }
                     }
                 }
             }
             
+            // Progress cards carousel
             TabView(selection: $selectedProgressCard) {
-                progressCard(
-                    title: "steps",
-                    value: "\(healthKitManager.stepCount)",
-                    goal: "Goal: 10,000",
-                    progress: Double(healthKitManager.stepCount) / 10000.0,
-                    color: Color(hex: "3CD76B"),
-                    icon: "figure.walk"
+                ModernProgressCard(
+                    metric: progressService.stepData,
+                    isCenter: selectedProgressCard == 0
                 ).tag(0)
                 
-                progressCard(
-                    title: "kcal",
-                    value: "\(Int(healthKitManager.activeEnergyBurned))",
-                    goal: "Goal: 500 kcal",
-                    progress: healthKitManager.activeEnergyBurned / 500.0,
-                    color: Color(hex: "FF8E3C"),
-                    icon: "flame.fill"
+                ModernProgressCard(
+                    metric: progressService.caloriesData,
+                    isCenter: selectedProgressCard == 1
                 ).tag(1)
                 
-                progressCard(
-                    title: "mL",
-                    value: "\(Int(healthKitManager.waterIntake))",
-                    goal: "Goal: 2000 mL",
-                    progress: healthKitManager.waterIntake / 2000.0,
-                    color: Color(hex: "3C9CFF"),
-                    icon: "drop.fill"
+                ModernProgressCard(
+                    metric: progressService.waterData,
+                    isCenter: selectedProgressCard == 2
                 ).tag(2)
+                
+                ModernProgressCard(
+                    metric: progressService.sleepData,
+                    isCenter: selectedProgressCard == 3
+                ).tag(3)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            .frame(height: 300)
+            .frame(height: 280)
         }
-    }
-    
-    private func progressCard(title: String, value: String, goal: String, progress: Double, color: Color, icon: String) -> some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(color)
-                    .frame(width: 60, height: 60)
-                
-                Image(systemName: icon)
-                    .font(.system(size: 30))
-                    .foregroundColor(.white)
-            }
-            
-            VStack(spacing: 4) {
-                Text(value)
-                    .font(.system(size: 44, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text(title)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-            }
-            
-            Text(goal)
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-            
-            Spacer()
-            
-            VStack(spacing: 8) {
-                ProgressView(value: min(progress, 1.0))
-                    .progressViewStyle(LinearProgressViewStyle(tint: color))
-                    .frame(height: 6)
-                
-                Text("\(Int(min(progress * 100, 100)))% complete")
-                    .font(.system(size: 12))
-                    .foregroundColor(.gray)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Constants.Colors.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(color, lineWidth: 2)
-                )
-        )
     }
     
     private var quickActionsSection: some View {

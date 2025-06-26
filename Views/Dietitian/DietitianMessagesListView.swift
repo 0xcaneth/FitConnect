@@ -1,27 +1,29 @@
 import SwiftUI
 import FirebaseFirestore
 import Combine
-import FitConnect
 
 @available(iOS 16.0, *)
 struct DietitianMessagesListView: View {
     @EnvironmentObject var session: SessionStore
-    @StateObject private var viewModel = DietitianMessagesListViewModel()
-    @State private var selectedChat: ChatSummary?
-
+    @StateObject private var messagingService = MessagingService.shared
+    @State private var conversations: [ConversationPreview] = []
+    @State private var selectedConversation: ConversationPreview?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    
     var body: some View {
         NavigationView {
             ZStack {
                 FitConnectColors.backgroundDark.ignoresSafeArea()
                 
-                if viewModel.isLoading {
+                if isLoading {
                     loadingView
-                } else if let errorMessage = viewModel.errorMessage {
+                } else if let errorMessage = errorMessage {
                     errorView(errorMessage)
-                } else if viewModel.chats.isEmpty {
+                } else if conversations.isEmpty {
                     emptyStateView
                 } else {
-                    chatListView
+                    conversationListView
                 }
             }
             .navigationTitle("Client Messages")
@@ -29,20 +31,16 @@ struct DietitianMessagesListView: View {
             .toolbarBackground(FitConnectColors.backgroundDark, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .onAppear {
-                viewModel.setup(session: session)
+                loadConversations()
             }
-            .sheet(item: $selectedChat) { chatToPresent in
-                if let dietitianId = session.currentUserId {
-                    NavigationView {
-                        DietitianChatDetailView(
-                            viewModel: DietitianChatDetailViewModel(chat: chatToPresent, currentDietitianId: dietitianId)
-                        )
-                        .environmentObject(session)
-                    }
-                } else {
-                    Text("Error: Dietitian session not found.")
-                        .foregroundColor(.red)
-                        .padding()
+            .sheet(item: $selectedConversation) { conversation in
+                NavigationStack {
+                    DietitianChatDetailView(
+                        recipientId: conversation.id,
+                        recipientName: conversation.otherUserName,
+                        recipientAvatarUrl: conversation.otherUserAvatarUrl
+                    )
+                    .environmentObject(session)
                 }
             }
         }
@@ -75,7 +73,7 @@ struct DietitianMessagesListView: View {
                 .padding(.horizontal)
             
             Button("Retry") {
-                viewModel.setup(session: session)
+                loadConversations()
             }
             .padding()
             .background(FitConnectColors.accentCyan)
@@ -102,86 +100,57 @@ struct DietitianMessagesListView: View {
         }
     }
     
-    private var chatListView: some View {
+    private var conversationListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(viewModel.chats) { chat in
-                    if let clientInfo = chat.otherParticipant(currentUserId: session.currentUserId ?? "") {
-                        DietitianChatRowView(
-                            chat: chat,
-                            clientInfo: clientInfo,
-                            unreadCount: chat.unreadCounts[session.currentUserId ?? ""] ?? 0
-                        )
+                ForEach(conversations) { conversation in
+                    DietitianConversationRowView(conversation: conversation)
                         .onTapGesture {
-                            selectedChat = chat
+                            selectedConversation = conversation
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                    }
                 }
             }
         }
     }
-}
-
-@MainActor
-class DietitianMessagesListViewModel: ObservableObject {
-    @Published var chats: [ChatSummary] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
     
-    private var chatListener: ListenerRegistration?
-    private var session: SessionStore?
-    
-    func setup(session: SessionStore) {
-        print("[DietitianMessagesListVM] Setup called")
-        self.session = session
-        startListeningForChats()
-    }
-    
-    private func startListeningForChats() {
-        guard let dietitianId = session?.currentUserId else {
-            errorMessage = "Dietitian ID not found. Please log in."
-            print("[DietitianMessagesListVM] No dietitianId found")
-            return
-        }
-        
-        print("[DietitianMessagesListVM] Starting to listen for chats for dietitian: \(dietitianId)")
+    private func loadConversations() {
         isLoading = true
         errorMessage = nil
         
-        chatListener = ChatService.shared.observeChats(forUserId: dietitianId) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.isLoading = false
-                
-                switch result {
-                case .success(let fetchedChats):
-                    self.chats = fetchedChats
-                    self.errorMessage = nil
-                    print("[DietitianMessagesListVM] Successfully loaded \(self.chats.count) chats")
-                case .failure(let error):
-                    self.errorMessage = "Failed to load conversations: \(error.localizedDescription)"
-                    self.chats = []
-                    print("[DietitianMessagesListVM] Error: \(error)")
+        Task {
+            do {
+                for try await conversationPreviews in messagingService.getConversationPreviews() {
+                    // Filter only conversations with clients
+                    let clientConversations = conversationPreviews.filter { conversation in
+                        // Here you might want to add additional filtering based on user roles
+                        // For now, we'll show all conversations
+                        return true
+                    }
+                    
+                    await MainActor.run {
+                        self.conversations = clientConversations
+                        self.isLoading = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
                 }
             }
         }
     }
-    
-    deinit {
-        chatListener?.remove()
-    }
 }
 
-struct DietitianChatRowView: View {
-    let chat: ChatSummary
-    let clientInfo: ParticipantInfo
-    let unreadCount: Int
+struct DietitianConversationRowView: View {
+    let conversation: ConversationPreview
     
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: clientInfo.photoURL ?? "")) { image in
+            // Avatar
+            AsyncImage(url: URL(string: conversation.otherUserAvatarUrl ?? "")) { image in
                 image
                     .resizable()
                     .scaledToFill()
@@ -197,29 +166,37 @@ struct DietitianChatRowView: View {
             .frame(width: 50, height: 50)
             .clipShape(Circle())
             
+            // Content
             VStack(alignment: .leading, spacing: 4) {
-                Text(clientInfo.fullName)
+                Text(conversation.otherUserName)
                     .font(.headline)
                     .foregroundColor(.white)
                 
-                Text(chat.lastMessageText ?? "No messages yet")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                if let lastMessage = conversation.lastMessage {
+                    Text(lastMessage.displayText)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                } else {
+                    Text("No messages yet")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
             }
             
             Spacer()
             
+            // Time and unread count
             VStack(alignment: .trailing, spacing: 4) {
-                if let timestamp = chat.lastMessageTimestamp {
-                    Text(relativeTimeString(from: timestamp))
+                if let lastMessage = conversation.lastMessage {
+                    Text(relativeTimeString(from: lastMessage.timestamp))
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
                 
-                if unreadCount > 0 {
-                    Text("\(unreadCount)")
+                if conversation.unreadCount > 0 {
+                    Text("\(conversation.unreadCount)")
                         .font(.caption2)
                         .fontWeight(.bold)
                         .foregroundColor(.white)

@@ -188,21 +188,17 @@ struct RootView: View {
             if let chatId = selectedChatId {
                 NavigationView {
                     if session.role == "client" {
-                        ClientChatDetailView(
-                            chatId: chatId,
-                            dietitianName: "Dietitian", 
-                            dietitianAvatarURL: nil,
-                            session: session
-                        )
-                        .navigationBarHidden(true)
+                        ClientChatView()
+                            .environmentObject(session)
+                            .navigationBarHidden(true)
                     } else {
-                        let mockClient = ParticipantInfo(id: "temp", fullName: "Client", photoURL: nil)
-                        let mockDietitian = ParticipantInfo(id: session.currentUserId ?? "", fullName: "Dietitian", photoURL: nil)
-                        let mockChat = ChatSummary(chatId: chatId, client: mockClient, dietitian: mockDietitian)
-                        
+                        // For dietitians, open specific client chat
                         DietitianChatDetailView(
-                            viewModel: DietitianChatDetailViewModel(chat: mockChat, currentDietitianId: session.currentUserId ?? "")
+                            recipientId: "client_temp", // This would need to be determined from the chat context
+                            recipientName: "Client",
+                            recipientAvatarUrl: nil
                         )
+                        .environmentObject(session)
                         .navigationBarHidden(true)
                     }
                 }

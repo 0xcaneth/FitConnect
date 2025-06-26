@@ -1,0 +1,128 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ----------------------------
+    // Helper Functions
+    // ----------------------------
+    function isDietitian() {
+      return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "dietitian";
+    }
+    
+    function isClient() {
+      return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "client";
+    }
+    
+    function isDietitianAssignedToClient(clientId) {
+      return isDietitian() && firestore.get(/databases/(default)/documents/users/$(clientId)).data.assignedDietitianId == request.auth.uid;
+    }
+    
+    function isClientAssignedToDietitian(dietitianId) {
+      return isClient() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.assignedDietitianId == dietitianId;
+    }
+    
+    function isInDietitianClientsList(dietitianId) {
+      return firestore.exists(/databases/(default)/documents/dietitians/$(dietitianId)/clients/$(request.auth.uid));
+    }
+
+    // ----------------------------
+    // NEW MESSAGING SYSTEM
+    // ----------------------------
+    
+    // Messages photos - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Messages videos - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/videos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Messages snaps - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/snaps/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ----------------------------
+    // PROFILE IMAGES
+    // ----------------------------
+    match /profile_images/{userId}/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+    
+    // Single profile photo format
+    match /profilePhotos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ----------------------------
+    // POST IMAGES (SOCIAL FEED)
+    // ----------------------------
+    match /post_images/{userId}/{imageId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+
+    // ----------------------------
+    // LEGACY CHAT ATTACHMENTS (Keep for backward compatibility)
+    // ----------------------------
+    match /chat_attachments/{chatId}/{attachmentType}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participantIds;
+    }
+
+    // ----------------------------
+    // MEAL PHOTOS
+    // ----------------------------
+    match /meal_photos/{userId}/{mealId}/{photoId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+    
+    // Scan Meal photos
+    match /meal_photos/{userId}/{date}/{imageId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+
+    // ----------------------------
+    // WORKOUT MEDIA
+    // ----------------------------
+    match /workout_media/{userId}/{workoutId}/{mediaId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+
+    // ----------------------------
+    // REPORTS / DOCUMENTS
+    // ----------------------------
+    match /reports/{reportId}/{fileName} {
+      allow read, write: if isDietitian();
+    }
+    
+    // ----------------------------
+    // GENERAL MEDIA FOLDER (for temporary uploads, etc.)
+    // ----------------------------
+    match /media/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // ----------------------------
+    // TEMP UPLOADS (for processing)
+    // ----------------------------
+    match /temp/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ----------------------------
+    // CATCH-ALL – DENY ANYTHING ELSE
+    // ----------------------------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

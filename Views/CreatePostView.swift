@@ -696,7 +696,7 @@ struct CreatePostView: View {
                     createdAt: Timestamp(date: Date()),
                     type: postTypeForModel,
                     category: categoryForModel,
-                    content: contentForModel,
+                    content: contentForModel.isEmpty ? nil : contentForModel,
                     badgeName: badgeNameForModel,
                     achievementName: achievementNameForModel,
                     imageURL: imageURLForPost,

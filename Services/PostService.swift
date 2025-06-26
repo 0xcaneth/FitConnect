@@ -165,14 +165,14 @@ final class PostService: ObservableObject {
             "type": postInput.type.rawValue,
             "likesCount": 0,
             "commentsCount": 0,
-            "status": PostStatus.published.rawValue // Auto-publish for now
+            "status": PostStatus.published.rawValue, // Auto-publish for now
+            "content": postInput.content ?? ""
         ]
         
         if let avatarURL = postInput.authorAvatarURL { postData["authorAvatarURL"] = avatarURL }
         if let category = postInput.category { postData["category"] = category }
         if let badgeName = postInput.badgeName { postData["badgeName"] = badgeName }
         if let achievementName = postInput.achievementName { postData["achievementName"] = achievementName }
-        if !postInput.content.isEmpty { postData["content"] = postInput.content }
         if let imageURL = postInput.imageURL { postData["imageURL"] = imageURL }
 
         print("[PostService] Creating post for author: \(postInput.authorId) with data: \(postData)")
@@ -386,8 +386,12 @@ final class PostService: ObservableObject {
     func setTypingIndicator(forPostId postId: String, userId: String, userName: String, isTyping: Bool) async throws {
         let indicatorRef = postCollection.document(postId).collection("typingIndicators").document(userId)
         if isTyping {
-            let indicatorData = TypingIndicator(userId: userId, userName: userName)
-            try await indicatorRef.setData(indicatorData.toDictionary(), merge: true)
+            let indicatorData: [String: Any] = [
+                "userId": userId,
+                "userName": userName,
+                "lastActive": FieldValue.serverTimestamp()
+            ]
+            try await indicatorRef.setData(indicatorData, merge: true)
         } else {
             try await indicatorRef.delete()
         }
@@ -409,11 +413,15 @@ final class PostService: ObservableObject {
             
             let now = Timestamp(date: Date())
             let activeUserNames = documents.compactMap { doc -> String? in
-                guard let indicator = TypingIndicator(dictionary: doc.data()) else { return nil }
-                if now.seconds - indicator.lastActive.seconds > 10 {
+                let data = doc.data()
+                guard let userName = data["userName"] as? String,
+                      let lastActive = data["lastActive"] as? Timestamp else { return nil }
+                
+                // Check if indicator is still active (within 10 seconds)
+                if now.seconds - lastActive.seconds > 10 {
                     return nil
                 }
-                return indicator.userName
+                return userName
             }
             completion(activeUserNames)
         }

@@ -1,0 +1,375 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------
+    // HELPER FUNCTIONS
+    // ----------------------------
+
+    // 1) Check if user is a dietitian
+    function isDietitian() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "dietitian";
+    }
+
+    // 2) Check if dietitian is assigned to a specific client
+    function isDietitianAssignedToClient(clientId) {
+      return isDietitian()
+        && exists(/databases/$(database)/documents/users/$(clientId))
+        && get(/databases/$(database)/documents/users/$(clientId)).data.assignedDietitianId == request.auth.uid;
+    }
+
+    // 3) Check if user can access this userId's data
+    function canAccessUserData(userId) {
+      return request.auth != null
+        && (request.auth.uid == userId
+            || isDietitianAssignedToClient(userId)
+            || isDietitianLinkedToClient(userId));
+    }
+
+    // 4) Check if user is linked to a specific dietitian via expertId
+    function isLinkedToExpert(dietitianId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.expertId == dietitianId;
+    }
+
+    function isDietitianLinkedToClient(clientId) {
+      return isDietitian()
+        && exists(/databases/$(database)/documents/users/$(clientId))
+        && get(/databases/$(database)/documents/users/$(clientId)).data.expertId == request.auth.uid;
+    }
+
+    function isValidRecipient(recipientId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let recipientDoc = get(/databases/$(database)/documents/users/$(recipientId));
+      let userRole = userDoc.data.role;
+      let recipientRole = recipientDoc.data.role;
+      
+      return (
+        // Client to their assigned dietitian
+        (userRole == "client" && recipientRole == "dietitian" && 
+         userDoc.data.assignedDietitianId == recipientId) ||
+        
+        // Client to their expert dietitian
+        (userRole == "client" && recipientRole == "dietitian" && 
+         userDoc.data.expertId == recipientId) ||
+        
+        // Dietitian to their assigned clients
+        (userRole == "dietitian" && recipientRole == "client" &&
+         recipientDoc.data.assignedDietitianId == request.auth.uid) ||
+         
+        // Dietitian to their expert clients
+        (userRole == "dietitian" && recipientRole == "client" &&
+         recipientDoc.data.expertId == request.auth.uid) ||
+         
+        // Dietitian to clients in their clients collection
+        (userRole == "dietitian" && recipientRole == "client" &&
+         exists(/databases/$(database)/documents/dietitians/$(request.auth.uid)/clients/$(recipientId)))
+      );
+    }
+
+    // ----------------------------
+    // USERS COLLECTION
+    // ----------------------------
+    match /users/{userId} {
+      // Read: Any authenticated user can read user profiles
+      allow read: if request.auth != null;
+
+      // Create: Only the user themselves can create their profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Update: User themselves or assigned dietitian
+      allow update: if canAccessUserData(userId);
+
+      // Delete: Only the user themselves
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      
+      // ----------------------------
+      // HEALTH DATA - CAPITAL D VERSION
+      // ----------------------------
+      match /healthData/{date} {
+        // Allow read/write access to user and assigned dietitian
+        allow read, write: if canAccessUserData(userId);
+        
+        // Meals subcollection under healthData
+        match /meals/{mealId} {
+          allow read, write: if canAccessUserData(userId);
+        }
+        
+        // Any other subcollections under healthData/{date}
+        match /{subcollection}/{docId} {
+          allow read, write: if canAccessUserData(userId);
+        }
+      }
+
+      // ----------------------------
+      // HEALTH DATA - LOWERCASE VERSION
+      // ----------------------------
+      match /healthdata/{date} {
+        // Allow read/write access to user and assigned dietitian
+        allow read, write: if canAccessUserData(userId);
+        
+        // Meals subcollection under healthdata
+        match /meals/{mealId} {
+          allow read, write: if canAccessUserData(userId);
+        }
+        
+        // Any other subcollections under healthdata/{date}
+        match /{subcollection}/{docId} {
+          allow read, write: if canAccessUserData(userId);
+        }
+      }
+
+      // ----------------------------
+      // DIRECT MEALS COLLECTION
+      // ----------------------------
+      match /meals/{mealId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+
+      // ----------------------------
+      // OTHER USER SUBCOLLECTIONS
+      // ----------------------------
+      match /badges/{badgeId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+      }
+
+      // Catch-all for other subcollections
+      match /{subCollection}/{docId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+    }
+
+    // ----------------------------
+    // DIETITIANS COLLECTION
+    // ----------------------------
+    match /dietitians/{dietitianId} {
+      // Read: Any authenticated user can read dietitian profiles (for expert lookup)
+      allow read: if request.auth != null;
+
+      // Create: Only the dietitian themselves can create their profile
+      allow create: if request.auth != null && request.auth.uid == dietitianId;
+
+      // Update: Only the dietitian themselves
+      allow update: if request.auth != null && request.auth.uid == dietitianId;
+
+      // Delete: Only the dietitian themselves
+      allow delete: if request.auth != null && request.auth.uid == dietitianId;
+
+      // ----------------------------
+      // CLIENTS SUBCOLLECTION (for expert connections)
+      // ----------------------------
+      match /clients/{clientId} {
+        // Read: Dietitian can read their clients, clients can read their own connection
+        allow read: if request.auth != null
+                   && (request.auth.uid == dietitianId || request.auth.uid == clientId);
+
+        // Create: Only the client themselves can create their connection
+        allow create: if request.auth != null
+                     && request.auth.uid == clientId
+                     && request.resource.data.userId == clientId;
+
+        // Update: Dietitian or client can update
+        allow update: if request.auth != null
+                     && (request.auth.uid == dietitianId || request.auth.uid == clientId);
+
+        // Delete: Client can delete their own connection, dietitian can remove clients
+        allow delete: if request.auth != null
+                     && (request.auth.uid == dietitianId || request.auth.uid == clientId);
+      }
+      
+      // ----------------------------
+      // APPOINTMENTS SUBCOLLECTION (for appointment scheduling) - TEMPORARY PERMISSIVE RULES
+      // ----------------------------
+      match /appointments/{appointmentId} {
+        // Dietitians can read/write/list their own appointments
+        allow read, write, list: if request.auth != null && request.auth.uid == dietitianId;
+        
+        // TEMPORARY: Allow any authenticated user to read appointments for debugging
+        allow read, list: if request.auth != null;
+        
+        // TEMPORARY: Allow any authenticated user to update appointments for debugging
+        allow update: if request.auth != null &&
+          request.resource.data.status == 'cancelled';
+        
+        // Clients can create appointments for themselves
+        allow create: if request.auth != null &&
+          request.auth.uid == request.resource.data.clientId;
+      }
+      
+      // Other dietitian subcollections
+      match /{subCollection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == dietitianId;
+      }
+    }
+
+    // ----------------------------
+    // NEW MESSAGING SYSTEM - FIXED
+    // ----------------------------
+    match /messages/{messageId} {
+      // Get specific message - user must be sender or recipient
+      allow get: if request.auth != null && 
+        (resource.data.senderId == request.auth.uid || 
+         resource.data.recipientId == request.auth.uid);
+      
+      // List messages - allow authenticated users to query, the query will filter appropriately
+      allow list: if request.auth != null;
+      
+      // Create messages - sender must match auth and recipient must be valid
+      allow create: if request.auth != null && 
+        request.resource.data.senderId == request.auth.uid &&
+        isValidRecipient(request.resource.data.recipientId);
+      
+      // Update - only for marking snaps as consumed by recipient
+      allow update: if request.auth != null && 
+        resource.data.recipientId == request.auth.uid &&
+        resource.data.type == "snap" &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isConsumed']) &&
+        request.resource.data.isConsumed == true;
+        
+      // No deletion allowed
+      allow delete: if false;
+    }
+
+    // ----------------------------
+    // OLD CHATS COLLECTION (Keep for backward compatibility)
+    // ----------------------------
+    match /chats/{chatId} {
+      // List and read chats
+      allow list: if request.auth != null;
+      allow get: if request.auth != null
+                && request.auth.uid in resource.data.participantIds;
+
+      // Create new chat
+      allow create: if request.auth != null
+                  && request.resource.data.participantIds.size() == 2
+                  && request.auth.uid in request.resource.data.participantIds;
+
+      // Update chat
+      allow update: if request.auth != null
+                  && request.auth.uid in resource.data.participantIds;
+
+      // No deletion allowed
+      allow delete: if false;
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Read messages if user is participant
+        allow read: if request.auth != null
+                  && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+
+        // Create message
+        allow create: if request.auth != null
+                    && request.resource.data.senderId == request.auth.uid
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+
+        // Update message (for read receipts)
+        allow update: if request.auth != null
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+
+        // No message deletion
+        allow delete: if false;
+      }
+    }
+
+    // ----------------------------
+    // USER CHALLENGES
+    // ----------------------------
+    match /userChallenges/{userId} {
+      allow read, write: if canAccessUserData(userId);
+      
+      // All subcollections under userChallenges
+      match /{document=**} {
+        allow read, write: if canAccessUserData(userId);
+      }
+    }
+
+    // ----------------------------
+    // PUBLIC CHALLENGES
+    // ----------------------------
+    match /challenges/{challengeId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isDietitian();
+    }
+
+    // ----------------------------
+    // POSTS / SOCIAL FEED
+    // ----------------------------
+    match /posts/{postId} {
+      // Read published posts or any post if dietitian
+      allow read: if request.auth != null
+                && (resource.data.status == "published" || isDietitian());
+      
+      // Create post
+      allow create: if request.auth != null
+                  && request.resource.data.authorId == request.auth.uid;
+      
+      // Update/delete post
+      allow update, delete: if request.auth != null
+                          && (resource.data.authorId == request.auth.uid || isDietitian());
+
+      // Likes subcollection
+      match /likes/{likeUserId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == likeUserId;
+      }
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+                    && request.resource.data.commenterId == request.auth.uid;
+        allow delete: if request.auth != null
+                    && (resource.data.commenterId == request.auth.uid || isDietitian());
+        allow update: if false;
+      }
+
+      // Typing indicators subcollection for posts
+      match /typingIndicators/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ----------------------------
+    // GLOBAL NOTIFICATIONS
+    // ----------------------------
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null
+                        && request.auth.uid == resource.data.userId;
+    }
+
+    // ----------------------------
+    // ASSIGNMENT REQUESTS
+    // ----------------------------
+    match /assignmentRequests/{requestId} {
+      // Create request
+      allow create: if request.auth != null
+                  && request.resource.data.clientId == request.auth.uid
+                  && request.resource.data.status == "pending";
+      
+      // Read request
+      allow read: if request.auth != null
+                && (isDietitian() || request.auth.uid == resource.data.clientId);
+      
+      // Update request (dietitians only)
+      allow update: if isDietitian();
+      
+      // No deletion
+      allow delete: if false;
+    }
+
+    // ----------------------------
+    // DEFAULT DENY ALL
+    // ----------------------------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

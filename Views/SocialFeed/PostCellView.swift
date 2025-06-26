@@ -168,8 +168,8 @@ struct PostCellView: View {
                                 .font(.custom("SFProRounded-Semibold", size: 17))
                                 .foregroundColor(.white)
                         }
-                        if !post.content.isEmpty {
-                            Text(post.content)
+                        if let content = post.content, !content.isEmpty {
+                            Text(content)
                                 .font(.custom("SFProText-Regular", size: 15))
                                 .foregroundColor(.white.opacity(0.9))
                                 .lineLimit(3)
@@ -181,7 +181,7 @@ struct PostCellView: View {
                     Image(systemName: "quote.bubble.fill")
                         .font(.title2)
                         .foregroundColor(colorForCategory(categoryName: post.category))
-                    Text(post.content)
+                    Text(post.content ?? "")
                         .font(.custom("SFProText-Regular", size: 16))
                         .foregroundColor(.white)
                         .italic()

@@ -234,7 +234,7 @@ struct FeedPostCardView: View {
             }
         case .motivation:
             VStack(alignment: .leading, spacing: 10) {
-                Text(post.content)
+                Text(post.content ?? "")
                     .font(.system(size: 18, weight: .medium, design: .serif)) 
                     .italic()
                     .foregroundColor(.white)
@@ -342,7 +342,7 @@ struct FeedPostCardView: View {
         case .achievement:
             contentPreview = post.achievementName ?? "an achievement"
         case .motivation:
-            contentPreview = post.content
+            contentPreview = post.content ?? ""
         }
         let finalPreview = String(contentPreview.prefix(50)) + (contentPreview.count > 50 ? "..." : "")
 

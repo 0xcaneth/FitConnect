@@ -19,7 +19,7 @@ struct Post: Identifiable, Codable, Hashable {
     var createdAt: Timestamp                   // Firestore timestamp
     var type: PostType                         // badge / achievement / motivation
     var category: String?                      // e.g., "Fitness & Activity", "Nutrition & Health"
-    var content: String                        // motivasyon sözü veya achievement description
+    var content: String?                       // motivasyon sözü veya achievement description
     var badgeName: String?                     // type == .badge
     var achievementName: String?               // type == .achievement, stores the specific achievement *name* if predefined, or can be nil if only category + custom description
     var imageURL: String?                      // kullanıcı resmi
