@@ -58,7 +58,7 @@ struct ContentOnboardingFlowView: View {
                             currentStep = .terms
                         }
                     },
-                    onSkip: {
+                    onBack: {
                         withAnimation(.easeInOut(duration: 0.4)) {
                             currentStep = .terms
                         }

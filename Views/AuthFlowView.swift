@@ -9,6 +9,8 @@ struct AuthFlowView: View {
     @State private var showingSplash = true
     @State private var showingPrivacy = false
     @State private var showingTerms = false
+    @State private var showingRoleSelection = false
+    @State private var selectedRole: UserRole? = nil
     @State private var showingAuth = false
     @State private var showingSignUp = false
     @State private var showingPasswordReset = false
@@ -30,24 +32,37 @@ struct AuthFlowView: View {
                         showingPrivacy = false
                         showingTerms = true
                     },
-                    onSkip: {
+                    onBack: { 
                         showingPrivacy = false
-                        showingTerms = true
+                        showingSplash = true
                     }
                 )
             } else if showingTerms {
                 SimpleTermsView(
                     onAccept: {
                         showingTerms = false
-                        showingAuth = true
+                        showingRoleSelection = true
                     },
                     onBack: {
                         showingTerms = false
                         showingPrivacy = true
                     }
                 )
+            } else if showingRoleSelection {
+                RoleSelectionView(
+                    onRoleSelected: { role in
+                        selectedRole = role
+                        showingRoleSelection = false
+                        showingAuth = true
+                    },
+                    onBack: {
+                        showingRoleSelection = false
+                        showingTerms = true
+                    }
+                )
             } else if showingAuth {
                 LoginScreenView(
+                    selectedRole: selectedRole ?? .client,
                     onSignUpTap: {
                         showingAuth = false
                         showingSignUp = true
@@ -58,11 +73,12 @@ struct AuthFlowView: View {
                     },
                     onBack: {
                         showingAuth = false
-                        showingTerms = true
+                        showingRoleSelection = true
                     }
                 )
             } else if showingSignUp {
                 SignUpScreenView(
+                    selectedRole: selectedRole ?? .client,
                     onLoginTap: {
                         showingSignUp = false
                         showingAuth = true
@@ -101,6 +117,7 @@ struct AuthFlowView: View {
                 showingSplash = false
                 showingPrivacy = false
                 showingTerms = false
+                showingRoleSelection = false
                 showingAuth = false
                 showingSignUp = false
                 showingPasswordReset = false

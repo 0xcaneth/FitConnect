@@ -4,61 +4,112 @@ import AppTrackingTransparency
 @available(iOS 16.0, *)
 struct PrivacyAnalyticsView: View {
     let onContinue: () -> Void
-    let onSkip: () -> Void
+    let onBack: () -> Void
     
     @State private var appUsageTracking = true
     @State private var workoutTracking = true
     @State private var anonymousTracking = true
     @State private var attPermissionGranted = false
     
-    @State private var iconOpacity: Double = 0.0
-    @State private var iconScale: CGFloat = 0.9
+    @State private var titleOpacity: Double = 0.0
+    @State private var titleScale: CGFloat = 0.9
+    @State private var shieldOpacity: Double = 0.0
+    @State private var shieldScale: CGFloat = 0.9
+    @State private var shieldPulse: CGFloat = 1.0
     @State private var descriptionOpacity: Double = 0.0
     @State private var cardsOpacity: [Double] = [0.0, 0.0, 0.0, 0.0, 0.0]
-    @State private var cardsOffset: [CGFloat] = [10, 10, 10, 10, 10]
+    @State private var cardsOffset: [CGFloat] = [20, 20, 20, 20, 20]
     @State private var buttonOpacity: Double = 0.0
-    @State private var buttonOffset: CGFloat = 10
+    @State private var buttonOffset: CGFloat = 30
+    @State private var buttonPulse: CGFloat = 1.0
+    
+    @State private var cardGlowIntensity: [Double] = [0.0, 0.0, 0.0, 0.0, 0.0]
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Full-screen dark background
-                Color(hex: "#0D0F14")
+                ZStack {
+                    Color(red: 0.04, green: 0.04, blue: 0.06)
+                        .ignoresSafeArea()
+                    
+                    RadialGradient(
+                        gradient: Gradient(colors: [
+                            Color.purple.opacity(0.15),
+                            Color.blue.opacity(0.1),
+                            Color.clear
+                        ]),
+                        center: UnitPoint(x: 0.5, y: 0.3),
+                        startRadius: 50,
+                        endRadius: 300
+                    )
                     .ignoresSafeArea()
+                    
+                    Rectangle()
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(colors: [
+                                    Color.white.opacity(0.02),
+                                    Color.clear
+                                ]),
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 200
+                            )
+                        )
+                        .ignoresSafeArea()
+                }
                 
                 VStack(spacing: 0) {
-                    // Custom Navigation Bar
-                    navigationBar()
+                    premiumNavigationBar()
                     
-                    ScrollView {
+                    ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 0) {
-                            // Shield Icon
-                            shieldIcon()
-                                .opacity(iconOpacity)
-                                .scaleEffect(iconScale)
+                            premiumShieldIcon()
+                                .opacity(shieldOpacity)
+                                .scaleEffect(shieldScale * shieldPulse)
+                                .padding(.top, 40)
+                            
+                            VStack(spacing: 16) {
+                                Text("Privacy & Analytics")
+                                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [
+                                                Color.white,
+                                                Color.white.opacity(0.9)
+                                            ]),
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .opacity(titleOpacity)
+                                    .scaleEffect(titleScale)
+                                
+                                Text("Help us improve FitConnect while keeping your data private and secure. Your privacy is our priority.")
+                                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .multilineTextAlignment(.center)
+                                    .lineSpacing(4)
+                                    .opacity(descriptionOpacity)
+                                    .padding(.horizontal, 32)
+                            }
+                            .padding(.top, 24)
+                            
+                            premiumPrivacyCardsStack()
                                 .padding(.top, 32)
                             
-                            // Description Text
-                            descriptionText()
-                                .opacity(descriptionOpacity)
-                                .padding(.top, 16)
-                            
-                            // Privacy Options Cards
-                            privacyCardsStack()
-                                .padding(.top, 24)
-                            
-                            Spacer(minLength: 120) // Space for bottom button
+                            Spacer(minLength: 140)
                         }
                     }
                 }
                 
-                // Bottom CTA Button (Fixed)
                 VStack {
                     Spacer()
-                    bottomButton()
+                    premiumBottomButton()
                         .opacity(buttonOpacity)
                         .offset(y: buttonOffset)
-                        .padding(.bottom, 24)
+                        .scaleEffect(buttonPulse)
+                        .padding(.bottom, 34)
                         .padding(.horizontal, 32)
                 }
             }
@@ -66,47 +117,92 @@ struct PrivacyAnalyticsView: View {
         .navigationBarHidden(true)
         .preferredColorScheme(.dark)
         .onAppear {
-            startAnimationSequence()
+            startPremiumAnimationSequence()
         }
     }
     
     @ViewBuilder
-    private func navigationBar() -> some View {
+    private func premiumNavigationBar() -> some View {
         HStack {
-            Button(action: onSkip) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 24, height: 24)
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+                
+                onBack()
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.2))
+                        .frame(width: 44, height: 44)
+                        .blur(radius: 8)
+                    
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.white.opacity(0.1),
+                                    Color.clear
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                }
             }
             .padding(.leading, 20)
             
             Spacer()
-            
-            Text("Privacy & Analytics")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
-            
-            Spacer()
-            
-            // Invisible spacer to balance the back button
-            Color.clear
-                .frame(width: 24, height: 24)
-                .padding(.trailing, 20)
         }
-        .padding(.top, 16)
+        .padding(.top, 8)
     }
     
     @ViewBuilder
-    private func shieldIcon() -> some View {
+    private func premiumShieldIcon() -> some View {
         ZStack {
-            // Glow background
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.purple.opacity(0.4),
+                            Color.blue.opacity(0.3),
+                            Color.clear
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2
+                )
+                .frame(width: 120, height: 120)
+                .blur(radius: 12)
+            
             Circle()
                 .fill(
                     RadialGradient(
                         gradient: Gradient(colors: [
-                            Color(hex: "#4E2A6F") ?? .purple,
-                            Color(hex: "#2A1A34").opacity(0)
+                            Color.purple.opacity(0.3),
+                            Color.blue.opacity(0.2),
+                            Color.clear
+                        ]),
+                        center: .center,
+                        startRadius: 20,
+                        endRadius: 60
+                    )
+                )
+                .frame(width: 100, height: 100)
+                .blur(radius: 8)
+            
+            Circle()
+                .fill(
+                    RadialGradient(
+                        gradient: Gradient(colors: [
+                            Color.white.opacity(0.1),
+                            Color.purple.opacity(0.4),
+                            Color.clear
                         ]),
                         center: .center,
                         startRadius: 0,
@@ -114,184 +210,250 @@ struct PrivacyAnalyticsView: View {
                     )
                 )
                 .frame(width: 80, height: 80)
+                .blur(radius: 6)
             
-            // Shield icon
-            Image(systemName: "shield.lefthalf.fill")
-                .font(.system(size: 48, weight: .regular))
-                .foregroundColor(.white)
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.system(size: 52, weight: .medium))
+                .foregroundStyle(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.white,
+                            Color.purple.opacity(0.8)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
         }
+        .animation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true), value: shieldPulse)
     }
     
     @ViewBuilder
-    private func descriptionText() -> some View {
-        Text("Help us improve FitConnect while keeping your data private and secure. Your privacy is our priority.")
-            .font(.system(size: 17, weight: .regular))
-            .foregroundColor(.white.opacity(0.7))
-            .multilineTextAlignment(.center)
-            .lineLimit(3)
-            .padding(.horizontal, 32)
-    }
-    
-    @ViewBuilder
-    private func privacyCardsStack() -> some View {
+    private func premiumPrivacyCardsStack() -> some View {
         VStack(spacing: 16) {
-            PrivacyOptionCardView(
+            PremiumPrivacyCard(
                 title: "App Usage & Feature Performance",
                 subtitle: "How you use features and app performance metrics.",
                 icon: "chart.pie.fill",
-                gradientColors: [Color(hex: "#4A7BFF") ?? .blue, Color(hex: "#1A2A5F") ?? .blue],
-                trailingType: .checkmark,
+                iconColor: Color(red: 0.29, green: 0.48, blue: 1.0),
+                trailingType: .toggle,
                 isEnabled: $appUsageTracking,
-                onTap: { optionTapped(index: 0) }
+                glowIntensity: cardGlowIntensity[0],
+                onTap: { 
+                    appUsageTracking.toggle()
+                    triggerCardGlow(index: 0)
+                }
             )
             .opacity(cardsOpacity[0])
             .offset(y: cardsOffset[0])
             
-            PrivacyOptionCardView(
+            PremiumPrivacyCard(
                 title: "Workout Success Rates & Patterns",
                 subtitle: "Workout completion and habit tracking.",
-                icon: "figure.walk.circle.fill",
-                gradientColors: [Color(hex: "#4AFFA1") ?? .green, Color(hex: "#1A3F2A") ?? .green],
-                trailingType: .checkmark,
+                icon: "figure.run.circle.fill",
+                iconColor: Color(red: 0.29, green: 1.0, blue: 0.63),
+                trailingType: .toggle,
                 isEnabled: $workoutTracking,
-                onTap: { optionTapped(index: 1) }
+                glowIntensity: cardGlowIntensity[1],
+                onTap: {
+                    workoutTracking.toggle()
+                    triggerCardGlow(index: 1)
+                }
             )
             .opacity(cardsOpacity[1])
             .offset(y: cardsOffset[1])
             
-            PrivacyOptionCardView(
+            PremiumPrivacyCard(
                 title: "Anonymous User Behavior",
                 subtitle: "Aggregated usage patterns with no personal identifiers.",
                 icon: "person.3.fill",
-                gradientColors: [Color(hex: "#FFD54F") ?? .yellow, Color(hex: "#4A3F1A") ?? .yellow],
-                trailingType: .checkmark,
+                iconColor: Color(red: 1.0, green: 0.84, blue: 0.31),
+                trailingType: .toggle,
                 isEnabled: $anonymousTracking,
-                onTap: { optionTapped(index: 2) }
+                glowIntensity: cardGlowIntensity[2],
+                onTap: {
+                    anonymousTracking.toggle()
+                    triggerCardGlow(index: 2)
+                }
             )
             .opacity(cardsOpacity[2])
             .offset(y: cardsOffset[2])
             
-            PrivacyOptionCardView(
+            PremiumPrivacyCard(
                 title: "No Personal Information Collected",
                 subtitle: "We never collect names, emails, or personal identifiers.",
                 icon: "lock.fill",
-                gradientColors: [Color(hex: "#4A4A4A").opacity(0.4), Color(hex: "#4A4A4A").opacity(0.4)],
+                iconColor: Color(red: 0.5, green: 0.5, blue: 0.5),
                 trailingType: .lock,
                 isEnabled: .constant(false),
+                glowIntensity: 0.0,
                 onTap: nil
             )
             .opacity(cardsOpacity[3])
             .offset(y: cardsOffset[3])
             
-            PrivacyOptionCardView(
+            PremiumPrivacyCard(
                 title: "iOS Tracking Permission",
                 subtitle: "Tap to configure system-level tracking preferences.",
                 icon: "hand.raised.fill",
-                gradientColors: [Color(hex: "#FF6B00") ?? .orange, Color(hex: "#5A2A00") ?? .orange],
+                iconColor: Color(red: 1.0, green: 0.42, blue: 0.0),
                 trailingType: .chevron,
                 isEnabled: $attPermissionGranted,
+                glowIntensity: cardGlowIntensity[4],
                 onTap: { requestTrackingPermissions() }
             )
             .opacity(cardsOpacity[4])
             .offset(y: cardsOffset[4])
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 24)
     }
     
     @ViewBuilder
-    private func bottomButton() -> some View {
-        Button(action: onContinue) {
-            Text("Allow Tracking & Continue")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(hex: "#3A8AFF") ?? .blue,
-                            Color(hex: "#8C2FFF") ?? .purple
-                        ]),
-                        startPoint: .leading,
-                        endPoint: .trailing
+    private func premiumBottomButton() -> some View {
+        Button(action: {
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.prepare()
+            impactFeedback.impactOccurred()
+            
+            onContinue()
+        }) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(Color.black.opacity(0.3))
+                    .frame(height: 50)
+                    .offset(y: 4)
+                    .blur(radius: 8)
+                
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 0.0, green: 0.9, blue: 1.0),
+                                Color(red: 0.5, green: 0.3, blue: 1.0)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(28)
+                    .frame(height: 50)
+                
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear
+                            ]),
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+                    .frame(height: 50)
+                
+                Text("Allow Tracking & Continue")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 1)
+            }
         }
-        .scaleEffect(buttonOpacity > 0 ? 1.0 : 0.95)
+        .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: buttonPulse)
     }
     
-    private func startAnimationSequence() {
-        // Step 1: Shield Icon animation
-        withAnimation(.easeOut(duration: 0.5)) {
-            iconOpacity = 1.0
+    private func startPremiumAnimationSequence() {
+        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+            shieldPulse = 1.05
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeOut(duration: 0.3)) {
-                iconScale = 1.0
+        withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+            buttonPulse = 1.02
+        }
+        
+        withAnimation(.spring(response: 0.8, dampingFraction: 0.6, blendDuration: 0)) {
+            shieldOpacity = 1.0
+            shieldScale = 1.0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7, blendDuration: 0)) {
+                titleOpacity = 1.0
+                titleScale = 1.0
             }
         }
         
-        // Step 2: Description text (0.2s delay after icon finishes)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeOut(duration: 0.6)) {
                 descriptionOpacity = 1.0
             }
         }
         
-        // Step 3: Cards (0.2s delay after description, staggered by 0.1s each)
-        let cardStartDelay = 1.6
+        let cardStartDelay = 1.2
         for index in 0..<5 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + cardStartDelay + (Double(index) * 0.1)) {
-                withAnimation(.easeOut(duration: 0.5)) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + cardStartDelay + (Double(index) * 0.05)) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                     cardsOpacity[index] = 1.0
                     cardsOffset[index] = 0
                 }
             }
         }
         
-        // Step 4: Bottom button (0.1s after last card)
-        DispatchQueue.main.asyncAfter(deadline: .now() + cardStartDelay + 0.5 + 0.1) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.6, blendDuration: 0)) {
                 buttonOpacity = 1.0
                 buttonOffset = 0
             }
         }
     }
     
-    private func optionTapped(index: Int) {
+    private func triggerCardGlow(index: Int) {
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
-        print("Privacy option \(index) tapped")
+        
+        withAnimation(.easeOut(duration: 0.2)) {
+            cardGlowIntensity[index] = 1.0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeOut(duration: 0.8)) {
+                cardGlowIntensity[index] = 0.0
+            }
+        }
     }
     
     private func requestTrackingPermissions() {
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+        
+        withAnimation(.easeOut(duration: 0.2)) {
+            cardGlowIntensity[4] = 1.0
+        }
         
         ATTrackingManager.requestTrackingAuthorization { status in
             DispatchQueue.main.async {
                 attPermissionGranted = status == .authorized
+                
+                withAnimation(.easeOut(duration: 0.8)) {
+                    cardGlowIntensity[4] = 0.0
+                }
             }
         }
     }
 }
 
-@available(iOS 16.0, *)
-struct PrivacyOptionCardView: View {
+struct PremiumPrivacyCard: View {
     let title: String
     let subtitle: String
     let icon: String
-    let gradientColors: [Color]
-    let trailingType: TrailingIconType
+    let iconColor: Color
+    let trailingType: TrailingType
     @Binding var isEnabled: Bool
+    let glowIntensity: Double
     let onTap: (() -> Void)?
     
     @State private var isPressed = false
     
-    enum TrailingIconType {
-        case checkmark, lock, chevron
+    enum TrailingType {
+        case toggle, lock, chevron
     }
     
     var body: some View {
@@ -303,19 +465,26 @@ struct PrivacyOptionCardView: View {
             }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
                     isPressed = false
                 }
                 onTap()
             }
         }) {
-            HStack(spacing: 12) {
-                // Icon container
+            HStack(spacing: 16) {
                 ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.3))
+                        .frame(width: 50, height: 50)
+                        .blur(radius: 8)
+                    
                     Circle()
                         .fill(
                             RadialGradient(
-                                gradient: Gradient(colors: gradientColors),
+                                gradient: Gradient(colors: [
+                                    iconColor,
+                                    iconColor.opacity(0.8)
+                                ]),
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: 22
@@ -326,87 +495,125 @@ struct PrivacyOptionCardView: View {
                     Image(systemName: icon)
                         .font(.system(size: 24, weight: .medium))
                         .foregroundColor(.white)
+                        .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 1)
                 }
                 
-                // Text stack
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
                     
                     Text(subtitle)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundColor(.white.opacity(0.5))
                         .multilineTextAlignment(.leading)
+                        .lineLimit(2)
                 }
                 
                 Spacer()
                 
-                // Trailing icon
-                trailingIcon()
+                trailingControl()
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .frame(height: 80)
+            .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(hex: "#121318") ?? .black)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 0.08, green: 0.08, blue: 0.12),
+                                Color(red: 0.06, green: 0.06, blue: 0.10)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        Color(hex: "#5A4AFF") ?? .purple,
-                                        Color(hex: "#3A8AFF") ?? .blue
+                                        Color.purple.opacity(0.4 + glowIntensity * 0.6),
+                                        Color.blue.opacity(0.3 + glowIntensity * 0.7)
                                     ]),
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 ),
                                 lineWidth: 1
+                            )
+                            .shadow(
+                                color: Color.purple.opacity(glowIntensity * 0.5),
+                                radius: glowIntensity * 8,
+                                x: 0,
+                                y: 0
                             )
                     )
             )
         }
-        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
         .disabled(onTap == nil)
+        .opacity(trailingType == .lock ? 0.4 : 1.0)
     }
     
     @ViewBuilder
-    private func trailingIcon() -> some View {
+    private func trailingControl() -> some View {
         switch trailingType {
-        case .checkmark:
+        case .toggle:
             ZStack {
-                Circle()
-                    .fill(isEnabled ? Color(hex: "#7E57FF") ?? .purple : Color.clear)
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isEnabled ?
+                          LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.purple.opacity(0.8),
+                                Color.blue.opacity(0.6)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                          ) :
+                          LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.gray.opacity(0.3),
+                                Color.gray.opacity(0.2)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                          )
                     )
+                    .frame(width: 44, height: 24)
                 
-                if isEnabled {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                }
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.white,
+                                Color.white.opacity(0.9)
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 10
+                        )
+                    )
+                    .frame(width: 20, height: 20)
+                    .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                    .offset(x: isEnabled ? 10 : -10)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7, blendDuration: 0), value: isEnabled)
             }
             
         case .lock:
             ZStack {
                 Circle()
-                    .fill(Color(hex: "#4A4A4A").opacity(0.4))
-                    .frame(width: 20, height: 20)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 24, height: 24)
                 
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
             }
             
         case .chevron:
             Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
         }
     }
 }
@@ -417,7 +624,7 @@ struct PrivacyAnalyticsView_Previews: PreviewProvider {
     static var previews: some View {
         PrivacyAnalyticsView(
             onContinue: {},
-            onSkip: {}
+            onBack: {}
         )
         .preferredColorScheme(.dark)
     }

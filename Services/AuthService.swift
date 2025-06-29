@@ -66,6 +66,90 @@ class AuthService: ObservableObject {
         }
     }
     
+    func signIn(email: String, password: String, expectedRole: UserRole) async throws {
+        print("[AuthService] Starting role-aware signIn for email: \(email), expected role: \(expectedRole.rawValue)")
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // CRITICAL: Ensure we're completely signed out first
+            if Auth.auth().currentUser != nil {
+                print("[AuthService] Existing user found, signing out first...")
+                try Auth.auth().signOut()
+                // Add a small delay to ensure complete sign out
+                try await Task.sleep(nanoseconds: 500_000_000) 
+            }
+            
+            // Now perform fresh sign in
+            print("[AuthService] Performing fresh sign in...")
+            let result = try await Auth.auth().signIn(withEmail: email, password: password)
+            let user = result.user
+            
+            print("[AuthService] Auth.signIn completed for UID: \(user.uid)")
+            
+            // Check if email is verified
+            if !user.isEmailVerified {
+                print("[AuthService] Email not verified for user: \(email)")
+                // Sign out the unverified user
+                try Auth.auth().signOut()
+                throw AuthError.emailNotVerified
+            }
+            
+            // Fetch user data from Firestore to validate role
+            let userDoc = try await Firestore.firestore().collection("users").document(user.uid).getDocument()
+            
+            guard userDoc.exists, let userData = userDoc.data() else {
+                print("[AuthService] User data not found in Firestore")
+                try Auth.auth().signOut()
+                throw AuthError.userDataNotFound
+            }
+            
+            guard let userRoleString = userData["role"] as? String else {
+                print("[AuthService] Invalid role data in Firestore")
+                try Auth.auth().signOut()
+                throw AuthError.invalidUserRole
+            }
+            
+            guard let userRole = UserRole(rawValue: userRoleString) else {
+                print("[AuthService] Unknown role value: \(userRoleString)")
+                try Auth.auth().signOut()
+                throw AuthError.invalidUserRole
+            }
+            
+            // Validate role matches expected role
+            if userRole != expectedRole {
+                print("[AuthService] Role mismatch - User role: \(userRole.rawValue), Expected: \(expectedRole.rawValue)")
+                try Auth.auth().signOut()
+                throw AuthError.roleMismatch(correctRole: userRole)
+            }
+            
+            // Update last online in Firestore
+            do {
+                try await Firestore.firestore().collection("users").document(user.uid).updateData([
+                    "lastOnline": FieldValue.serverTimestamp()
+                ])
+                print("[AuthService] Last online timestamp updated")
+            } catch {
+                print("[AuthService] Failed to update last online: \(error.localizedDescription)")
+                // Don't throw - this is not critical for login
+            }
+            
+            print("[AuthService] User signed in successfully with correct role: \(userRole.rawValue)")
+            isLoading = false
+            
+        } catch {
+            print("[AuthService] Error during signIn: \(error.localizedDescription)")
+            isLoading = false
+            errorMessage = handleAuthError(error)
+            showingError = true
+            
+            // Ensure we're signed out on error
+            try? Auth.auth().signOut()
+            throw error
+        }
+    }
+    
+    // KEEP: Original signIn method for backward compatibility
     func signIn(email: String, password: String) async throws {
         print("[AuthService] Starting signIn for email: \(email)")
         isLoading = true
@@ -179,6 +263,89 @@ class AuthService: ObservableObject {
     
     // MARK: - Google Sign In
     
+    func signInWithGoogle(presenting viewController: UIViewController, expectedRole: UserRole) async throws {
+        print("[AuthService] Starting role-aware Google signIn for expected role: \(expectedRole.rawValue)")
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            guard let clientID = FirebaseApp.app()?.options.clientID else {
+                throw AuthError.googleSignInFailed
+            }
+            
+            let config = GIDConfiguration(clientID: clientID)
+            GIDSignIn.sharedInstance.configuration = config
+            
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: viewController)
+            
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw AuthError.googleSignInFailed
+            }
+            
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            
+            let authResult = try await Auth.auth().signIn(with: credential)
+            let user = authResult.user
+            
+            // Check if user document exists in Firestore
+            let userDoc = try await Firestore.firestore().collection("users").document(user.uid).getDocument()
+            
+            if !userDoc.exists {
+                // Create new user document with the selected role from UI
+                let userData: [String: Any] = [
+                    "email": user.email ?? "",
+                    "fullName": user.displayName ?? "Google User",
+                    "role": expectedRole.rawValue, 
+                    "isEmailVerified": true,
+                    "createdAt": FieldValue.serverTimestamp(),
+                    "lastOnline": FieldValue.serverTimestamp(),
+                    "xp": 0,
+                    "level": 1,
+                    "profileImageUrl": user.photoURL?.absoluteString ?? "",
+                    "assignedDietitianId": expectedRole == .client ? "" : nil
+                ]
+                
+                try await Firestore.firestore().collection("users").document(user.uid).setData(userData)
+                print("[AuthService] Google user document created with role = \(expectedRole.rawValue)")
+            } else {
+                // Existing user - validate their role matches expected role
+                guard let userData = userDoc.data(),
+                      let userRoleString = userData["role"] as? String,
+                      let userRole = UserRole(rawValue: userRoleString) else {
+                    print("[AuthService] Invalid role data for existing Google user")
+                    try Auth.auth().signOut()
+                    throw AuthError.invalidUserRole
+                }
+                
+                // Validate role matches expected role
+                if userRole != expectedRole {
+                    print("[AuthService] Google user role mismatch - User role: \(userRole.rawValue), Expected: \(expectedRole.rawValue)")
+                    try Auth.auth().signOut()
+                    throw AuthError.roleMismatch(correctRole: userRole)
+                }
+                
+                // Update last online
+                try await Firestore.firestore().collection("users").document(user.uid).updateData([
+                    "lastOnline": FieldValue.serverTimestamp()
+                ])
+                print("[AuthService] Existing Google user validated with correct role: \(userRole.rawValue)")
+            }
+            
+            print("[AuthService] Google sign in successful with role validation")
+            isLoading = false
+            
+        } catch {
+            isLoading = false
+            errorMessage = handleAuthError(error)
+            showingError = true
+            throw error
+        }
+    }
+    
+    // KEEP: Original Google Sign In method for backward compatibility
     func signInWithGoogle(presenting viewController: UIViewController) async throws {
         isLoading = true
         errorMessage = nil
@@ -319,6 +486,9 @@ enum AuthError: LocalizedError {
     case emailNotVerified
     case noCurrentUser
     case googleSignInFailed
+    case userDataNotFound
+    case invalidUserRole
+    case roleMismatch(correctRole: UserRole)
     
     var errorDescription: String? {
         switch self {
@@ -328,6 +498,12 @@ enum AuthError: LocalizedError {
             return "No user is currently signed in."
         case .googleSignInFailed:
             return "Google Sign-In failed. Please try again."
+        case .userDataNotFound:
+            return "Account data not found. Please contact support."
+        case .invalidUserRole:
+            return "Invalid account type. Please contact support."
+        case .roleMismatch(let correctRole):
+            return "You're trying to sign in with the wrong account type. You have a \(correctRole.displayName) account, so please go back and select '\(correctRole.displayName)' to access your account."
         }
     }
 }

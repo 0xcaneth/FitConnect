@@ -89,7 +89,7 @@ struct ResetPasswordView: View {
                                 .padding(.leading, 4)
                             
                             TextField("Enter your email address", text: $email)
-                                .textFieldStyle(CustomTextFieldStyle())
+                                .textFieldStyle(PremiumTextFieldStyle())
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .autocorrectionDisabled()
