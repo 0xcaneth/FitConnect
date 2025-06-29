@@ -365,14 +365,10 @@ struct RoleSelectionView: View {
                     .offset(y: 4)
                     .blur(radius: 10)
                 
-                // Main button background
                 RoundedRectangle(cornerRadius: 26)
                     .fill(
                         LinearGradient(
-                            colors: [
-                                Color(hex: "#00E5FF"),
-                                Color(hex: "#7E57FF")
-                            ],
+                            colors: buttonGradientColors,
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -404,6 +400,29 @@ struct RoleSelectionView: View {
         .opacity(selectedRole == nil ? 0.4 : 1.0)
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: selectedRole)
         .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: buttonPulse)
+    }
+    
+    private var buttonGradientColors: [Color] {
+        guard let selectedRole = selectedRole else {
+            // Default gradient when no role selected
+            return [
+                Color(hex: "#00E5FF"),
+                Color(hex: "#7E57FF")
+            ]
+        }
+        
+        switch selectedRole {
+        case .client: // User
+            return [
+                Color(hex: "#4A7BFF"), // Blue
+                Color(hex: "#3A6FE8")  // Darker blue
+            ]
+        case .dietitian:
+            return [
+                Color(hex: "#4AFFA1"), // Green
+                Color(hex: "#3AE891")  // Darker green
+            ]
+        }
     }
     
     private func selectRole(_ role: UserRole, cardIndex: Int) {

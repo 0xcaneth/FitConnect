@@ -147,6 +147,7 @@ struct LoginScreenView: View {
                         }
                         .padding(.bottom, 40)
                         
+                        /*
                         #if DEBUG
                         NavigationLink(destination: DebugAuthView()) {
                             Text("🐛 Debug Auth Issues")
@@ -155,6 +156,7 @@ struct LoginScreenView: View {
                         }
                         .padding(.bottom, 20)
                         #endif
+                        */
                     }
                 }
             }
