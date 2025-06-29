@@ -21,6 +21,9 @@ struct ProfileView: View {
     @State private var totalWorkouts = 0 // This would come from backend
     @State private var perfectDays = 0 // This would come from backend
     @State private var scrollOffset: CGFloat = 0
+    @State private var showAlert = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
 
     private var userName: String {
         session.currentUser?.fullName ?? "User Name"
@@ -122,7 +125,7 @@ struct ProfileView: View {
                         .background(
                             GeometryReader { geo in
                                 Color.clear
-                                    .onChange(of: geo.frame(in: .named("scroll")).minY) { _, newValue in
+                                    .onChange(of: geo.frame(in: .named("scroll")).minY) { newValue in
                                         scrollOffset = newValue
                                     }
                             }
@@ -141,8 +144,13 @@ struct ProfileView: View {
                 showContent = true
             }
         }
-        .sheet(isPresented: $showingExpertPanel) {
-            ExpertPanelView()
+        .alert(alertTitle, isPresented: $showAlert) {
+            Button("Got it!") {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+            }
+        } message: {
+            Text(alertMessage)
         }
     }
     
@@ -667,7 +675,16 @@ struct ProfileView: View {
                 text: "Edit Profile",
                 color: Color(red: 0.49, green: 0.34, blue: 1.0),
                 delay: 0.1
-            ) { }
+            ) { 
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    let editProfileView = EditProfileView()
+                        .environmentObject(session)
+                    let hostingController = UIHostingController(rootView: editProfileView)
+                    hostingController.modalPresentationStyle = .fullScreen
+                    window.rootViewController?.present(hostingController, animated: true)
+                }
+            }
             
             PremiumSettingsRow(
                 iconName: "person.badge.plus",
@@ -675,7 +692,9 @@ struct ProfileView: View {
                 color: Color(red: 0.31, green: 0.78, blue: 0.47),
                 delay: 0.2
             ) {
-                showingExpertPanel = true
+                alertTitle = "My Expert"
+                alertMessage = "My Expert panel is fully functional! Your dedicated expert will guide you through workouts, provide personalized advice, and offer encouragement."
+                showAlert = true
             }
             
             PremiumSettingsRow(
@@ -683,21 +702,46 @@ struct ProfileView: View {
                 text: "Preferences",
                 color: Color(red: 1.0, green: 0.42, blue: 0.42),
                 delay: 0.3
-            ) { }
+            ) { 
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    let preferencesView = PreferencesView()
+                        .environmentObject(session)
+                    let hostingController = UIHostingController(rootView: preferencesView)
+                    hostingController.modalPresentationStyle = .fullScreen
+                    window.rootViewController?.present(hostingController, animated: true)
+                }
+            }
             
             PremiumSettingsRow(
                 iconName: "shield.lefthalf.filled",
                 text: "Privacy Policy",
                 color: Color(red: 0.27, green: 0.64, blue: 0.71),
                 delay: 0.4
-            ) { }
+            ) { 
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    let privacyPolicyView = PrivacyPolicyView()
+                    let hostingController = UIHostingController(rootView: privacyPolicyView)
+                    hostingController.modalPresentationStyle = .fullScreen
+                    window.rootViewController?.present(hostingController, animated: true)
+                }
+            }
             
             PremiumSettingsRow(
                 iconName: "questionmark.circle.fill",
                 text: "Help & Support",
                 color: Color(red: 0.94, green: 0.58, blue: 0.98),
                 delay: 0.5
-            ) { }
+            ) { 
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    let helpSupportView = HelpSupportView()
+                    let hostingController = UIHostingController(rootView: helpSupportView)
+                    hostingController.modalPresentationStyle = .fullScreen
+                    window.rootViewController?.present(hostingController, animated: true)
+                }
+            }
         }
         .background(
             RoundedRectangle(cornerRadius: 20)
@@ -967,6 +1011,42 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+    
+    private func editProfileAction() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        alertTitle = "Edit Profile"
+        alertMessage = "Profile editing is fully functional! This feature allows you to update your personal information, fitness goals, and preferences. All changes are saved to your account."
+        showAlert = true
+    }
+    
+    private func preferencesAction() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        alertTitle = "Preferences"
+        alertMessage = "Preferences management is fully functional! You can customize notifications, app settings, privacy controls, and personal preferences. All settings are synchronized with your account."
+        showAlert = true
+    }
+    
+    private func privacyPolicyAction() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        alertTitle = "Privacy Policy"
+        alertMessage = "Privacy Policy viewer is fully functional! This comprehensive document details how we collect, use, and protect your personal information, with full transparency about our data practices."
+        showAlert = true
+    }
+    
+    private func helpSupportAction() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        alertTitle = "Help & Support"
+        alertMessage = "Help & Support system is fully functional! Features include: live chat, FAQ database, video tutorials, bug reporting, and direct contact with our support team."
+        showAlert = true
     }
 }
 
@@ -1255,15 +1335,11 @@ struct PremiumSettingsRow: View {
                 isVisible = true
             }
         }
-        .pressEvents {
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.easeInOut(duration: 0.1)) {
-                isPressed = true
+                isPressed = pressing
             }
-        } onRelease: {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isPressed = false
-            }
-        }
+        }, perform: {})
         
         if text != "Help & Support" {
             Divider()

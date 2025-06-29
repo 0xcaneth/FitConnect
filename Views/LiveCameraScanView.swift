@@ -89,7 +89,6 @@ struct LiveCameraScanView: View {
                 .onAppear { 
                     scanFrameAnimation = true
                     let screenWidth = UIScreen.main.bounds.width
-                    let screenHeight = UIScreen.main.bounds.height
                     let frameSize: CGFloat = 280
                     scanFrameRect = CGRect(
                         x: (screenWidth - frameSize) / 2,
@@ -193,11 +192,10 @@ struct LiveCameraScanView: View {
         let imageWidth = CGFloat(cgImage.width)
         let imageHeight = CGFloat(cgImage.height)
         let screenWidth = UIScreen.main.bounds.width
-        let screenHeight = UIScreen.main.bounds.height
         
         // Scale factors to map screen coordinates to image coordinates
         let scaleX = imageWidth / screenWidth
-        let scaleY = imageHeight / screenHeight
+        let scaleY = imageHeight / UIScreen.main.bounds.height
         
         // Use the larger scale to ensure we crop the correct portion
         let scale = max(scaleX, scaleY)
@@ -328,6 +326,31 @@ class SimpleCameraManager: NSObject, ObservableObject {
     func getSession() -> AVCaptureSession { return captureSession }
 }
 
+extension SimpleCameraManager: AVCapturePhotoCaptureDelegate {
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        let capturedCompletionHandler = self.photoCaptureCompletionHandler
+        
+        Task { @MainActor in
+            self.photoCaptureCompletionHandler = nil
+            
+            if let error = error { 
+                print("❌ Error processing: \(error.localizedDescription)")
+                capturedCompletionHandler?(.failure(error))
+                return 
+            }
+            
+            guard let imageData = photo.fileDataRepresentation(), let image = UIImage(data: imageData) else {
+                print("❌ No image data")
+                capturedCompletionHandler?(.failure(NSError(domain: "Camera", code: 2, userInfo: [NSLocalizedDescriptionKey: "No image data"])))
+                return
+            }
+            
+            print("✅ Photo processed.")
+            capturedCompletionHandler?(.success(image))
+        }
+    }
+}
+
 struct ManagerBasedCameraPreview: UIViewRepresentable {
     @ObservedObject var cameraManager: SimpleCameraManager
     func makeUIView(context: Context) -> UIView {
@@ -355,19 +378,6 @@ struct ManagerBasedCameraPreview: UIViewRepresentable {
     }
     func makeCoordinator() -> Coordinator { Coordinator() }
     class Coordinator: NSObject { var previewLayer: AVCaptureVideoPreviewLayer? }
-}
-
-extension SimpleCameraManager: AVCapturePhotoCaptureDelegate {
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        let capturedCompletionHandler = self.photoCaptureCompletionHandler; self.photoCaptureCompletionHandler = nil
-        DispatchQueue.main.async {
-            if let error = error { print("❌ Error processing: \(error.localizedDescription)"); capturedCompletionHandler?(.failure(error)); return }
-            guard let imageData = photo.fileDataRepresentation(), let image = UIImage(data: imageData) else {
-                print("❌ No image data"); capturedCompletionHandler?(.failure(NSError(domain: "Camera", code: 2, userInfo: [NSLocalizedDescriptionKey: "No image data"]))); return
-            }
-            print("✅ Photo processed."); capturedCompletionHandler?(.success(image))
-        }
-    }
 }
 
 #if DEBUG
