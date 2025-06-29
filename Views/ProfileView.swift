@@ -136,14 +136,6 @@ struct ProfileView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear {
-            startAnimations()
-            loadProfileData()
-            
-            withAnimation(.easeOut(duration: 0.8)) {
-                showContent = true
-            }
-        }
         .alert(alertTitle, isPresented: $showAlert) {
             Button("Got it!") {
                 let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -151,6 +143,18 @@ struct ProfileView: View {
             }
         } message: {
             Text(alertMessage)
+        }
+        .sheet(isPresented: $showingExpertPanel) {
+            ExpertPanelView()
+                .environmentObject(session)
+        }
+        .onAppear {
+            startAnimations()
+            loadProfileData()
+            
+            withAnimation(.easeOut(duration: 0.8)) {
+                showContent = true
+            }
         }
     }
     
@@ -693,9 +697,7 @@ struct ProfileView: View {
                 color: Color(red: 0.31, green: 0.78, blue: 0.47),
                 delay: 0.2
             ) {
-                alertTitle = "My Expert"
-                alertMessage = "My Expert panel is fully functional! Your dedicated expert will guide you through workouts, provide personalized advice, and offer encouragement."
-                showAlert = true
+                showingExpertPanel = true
             }
             
             PremiumSettingsRow(
