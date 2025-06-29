@@ -3,7 +3,7 @@ import FirebaseFirestore
 import FirebaseAuth
 
 @available(iOS 16.0, *)
-struct EditProfileView: View {
+struct UserEditProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var session: SessionStore
     
@@ -732,9 +732,9 @@ struct PremiumPickerField: View {
 
 #if DEBUG
 @available(iOS 16.0, *)
-struct EditProfileView_Previews: PreviewProvider {
+struct UserEditProfileView_Previews: PreviewProvider {
     static var previews: some View {
-        EditProfileView()
+        UserEditProfileView()
             .environmentObject(SessionStore.previewStore())
             .preferredColorScheme(.dark)
     }

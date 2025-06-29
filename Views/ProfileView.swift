@@ -676,9 +676,10 @@ struct ProfileView: View {
                 color: Color(red: 0.49, green: 0.34, blue: 1.0),
                 delay: 0.1
             ) { 
+                // Navigate to UserEditProfileView
                 if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                    let window = windowScene.windows.first {
-                    let editProfileView = EditProfileView()
+                    let editProfileView = UserEditProfileView()
                         .environmentObject(session)
                     let hostingController = UIHostingController(rootView: editProfileView)
                     hostingController.modalPresentationStyle = .fullScreen
