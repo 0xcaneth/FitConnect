@@ -146,6 +146,15 @@ struct LoginScreenView: View {
                             }
                         }
                         .padding(.bottom, 40)
+                        
+                        #if DEBUG
+                        NavigationLink(destination: DebugAuthView()) {
+                            Text("🐛 Debug Auth Issues")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.bottom, 20)
+                        #endif
                     }
                 }
             }
@@ -306,12 +315,14 @@ struct LoginScreenView: View {
         Task {
             do {
                 try await AuthService.shared.signIn(email: email, password: password, expectedRole: selectedRole)
+                
                 await MainActor.run {
                     isLoading = false
                 }
             } catch {
                 await MainActor.run {
                     isLoading = false
+                    // Use the safer handleAuthError method
                     handleAuthError(error)
                 }
             }
@@ -330,6 +341,7 @@ struct LoginScreenView: View {
         Task {
             do {
                 try await AuthService.shared.signInWithGoogle(presenting: rootViewController, expectedRole: selectedRole)
+                
                 await MainActor.run {
                     isLoading = false
                 }
@@ -343,21 +355,24 @@ struct LoginScreenView: View {
     }
     
     private func handleAuthError(_ error: Error) {
-        if let authError = error as? AuthError,
-           case .roleMismatch(let correctRole) = authError {
-            errorMessage = "You're trying to sign in with the wrong account type. You have a \(correctRole.displayName) account, so please go back and select '\(correctRole.displayName)' to access your account."
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
-                showingError = false
+        DispatchQueue.main.async {
+            if let authError = error as? AuthError,
+               case .roleMismatch(let correctRole) = authError {
+                self.errorMessage = "You're trying to sign in with the wrong account type. You have a \(correctRole.displayName) account, so please go back and select '\(correctRole.displayName)' to access your account."
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
+                    self.showingError = false
+                }
+            } else {
+                self.errorMessage = error.localizedDescription
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                    self.showingError = false
+                }
             }
-        } else {
-            errorMessage = error.localizedDescription
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                showingError = false
-            }
+            self.showingError = true
         }
-        showingError = true
     }
 }
 
