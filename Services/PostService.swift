@@ -194,7 +194,7 @@ final class PostService: ObservableObject {
               let currentUserRole = sessionStore?.role else {
             throw ModerationError.permissionDenied("delete post (not authenticated)")
         }
-        
+
         if !(post.authorId == currentUid || currentUserRole == "dietitian") {
              throw ModerationError.permissionDenied("delete this post")
         }
@@ -211,37 +211,86 @@ final class PostService: ObservableObject {
     // MARK: - Likes
     
     func like(post: Post, by userId: String) async throws {
-        guard let postId = post.id else { return }
+        guard let postId = post.id else { 
+            print("[PostService] 🚫 Like failed: Post ID is nil")
+            throw PostServiceError.unknown 
+        }
+        
+        print("[PostService] 👍 Attempting to like post \(postId) by user \(userId)")
+        
         let likeRef = postCollection.document(postId).collection("likes").document(userId)
         let batch = db.batch()
-        let data = PostLike(likerId: userId, createdAt: Timestamp(date: Date()))
-        try batch.setData(from: data, forDocument: likeRef, merge: true)
+        
+        let likeData: [String: Any] = [
+            "likerId": userId,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        
+        batch.setData(likeData, forDocument: likeRef, merge: true)
         batch.updateData(["likesCount": FieldValue.increment(Int64(1))], forDocument: postCollection.document(postId))
-        try await batch.commit()
+        
+        do {
+            try await batch.commit()
+            print("[PostService] 📈 Like successful for post \(postId)")
+        } catch {
+            print("[PostService] 🚫 Like failed for post \(postId): \(error.localizedDescription)")
+            throw error
+        }
     }
     
     func unlike(post: Post, by userId: String) async throws {
-        guard let postId = post.id else { return }
+        guard let postId = post.id else { 
+            print("[PostService] 🚫 Unlike failed: Post ID is nil")
+            throw PostServiceError.unknown 
+        }
+        
+        print("[PostService] 👎 Attempting to unlike post \(postId) by user \(userId)")
+        
         let likeRef = postCollection.document(postId).collection("likes").document(userId)
         let batch = db.batch()
+        
         batch.deleteDocument(likeRef)
         batch.updateData(["likesCount": FieldValue.increment(Int64(-1))], forDocument: postCollection.document(postId))
-        try await batch.commit()
+        
+        do {
+            try await batch.commit()
+            print("[PostService] 📉 Unlike successful for post \(postId)")
+        } catch {
+            print("[PostService] 🚫 Unlike failed for post \(postId): \(error.localizedDescription)")
+            throw error
+        }
     }
     
     func hasUserLiked(post: Post, userId: String) async throws -> Bool {
-        guard let postId = post.id else { return false }
-        let doc = try await postCollection.document(postId).collection("likes").document(userId).getDocument()
-        return doc.exists
+        guard let postId = post.id else { 
+            print("[PostService] 🚫 hasUserLiked check failed: Post ID is nil")
+            return false 
+        }
+        
+        do {
+            let doc = try await postCollection.document(postId).collection("likes").document(userId).getDocument()
+            let liked = doc.exists
+            print("[PostService] 🔍 User \(userId) like status for post \(postId): \(liked)")
+            return liked
+        } catch {
+            print("[PostService] 🚫 Error checking like status: \(error.localizedDescription)")
+            return false
+        }
     }
-    
+
     // MARK: - Comments
     
     func addComment(to post: Post, comment: PostComment) async throws {
-        guard let postId = post.id else { throw PostServiceError.unknown }
+        guard let postId = post.id else { 
+            print("[PostService] ❌ Add comment failed: Post ID is nil")
+            throw PostServiceError.unknown 
+        }
         guard let currentUid = sessionStore?.currentUserId, !currentUid.isEmpty, comment.commenterId == currentUid else {
+            print("[PostService] ❌ Add comment failed: Authentication error")
             throw ModerationError.permissionDenied("add comment (ID mismatch or not authenticated)")
         }
+        
+        print("[PostService] 💬 Adding comment to post \(postId) by user \(currentUid)")
         
         let commentsRef = postCollection.document(postId).collection("comments")
         let newCommentRef = commentsRef.document()
@@ -252,29 +301,53 @@ final class PostService: ObservableObject {
             "text": comment.text,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        if let avatarURL = comment.commenterAvatarURL { commentData["commenterAvatarURL"] = avatarURL }
+        if let avatarURL = comment.commenterAvatarURL { 
+            commentData["commenterAvatarURL"] = avatarURL 
+        }
         
         let batch = db.batch()
         batch.setData(commentData, forDocument: newCommentRef)
         batch.updateData(["commentsCount": FieldValue.increment(Int64(1))], forDocument: postCollection.document(postId))
-        try await batch.commit()
+        
+        do {
+            try await batch.commit()
+            print("[PostService] ✅ Comment added successfully to post \(postId)")
+        } catch {
+            print("[PostService] ❌ Add comment failed for post \(postId): \(error.localizedDescription)")
+            throw error
+        }
     }
     
     func listenComments(for postId: String, completion: @escaping ([PostComment]) -> Void) -> ListenerRegistration {
+        print("[PostService] 👂 Starting to listen comments for post \(postId)")
+        
         return postCollection.document(postId)
             .collection("comments")
             .order(by: "createdAt", descending: false)
             .addSnapshotListener { snapshot, error in
                 if let error = error {
-                    print("[PostService] Comments listener error for post \(postId): \(error.localizedDescription)")
+                    print("[PostService] ❌ Comments listener error for post \(postId): \(error.localizedDescription)")
                     completion([])
                     return
                 }
                 guard let documents = snapshot?.documents else {
+                    print("[PostService] 📭 No comments found for post \(postId)")
                     completion([])
                     return
                 }
-                let comments = documents.compactMap { try? $0.data(as: PostComment.self) }
+                
+                print("[PostService] 📬 Found \(documents.count) comments for post \(postId)")
+                
+                let comments = documents.compactMap { doc -> PostComment? in
+                    do {
+                        var comment = try doc.data(as: PostComment.self)
+                        comment.id = doc.documentID 
+                        return comment
+                    } catch {
+                        print("[PostService] ❌ Error decoding comment \(doc.documentID): \(error)")
+                        return nil
+                    }
+                }
                 completion(comments)
             }
     }

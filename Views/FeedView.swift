@@ -1065,10 +1065,18 @@ struct PremiumFeedPostCard: View {
     
     // MARK: - Helper Functions
     private func performLikeAction() {
-        guard let currentUserId = session.currentUserId, let postId = post.id else { return }
+        guard let currentUserId = session.currentUserId, let postId = post.id else { 
+            print("[PremiumFeedPostCard] ❌ Like action failed: Missing user ID or post ID")
+            return 
+        }
+        
+        print("[PremiumFeedPostCard] 🎯 Like action started for post \(postId) by user \(currentUserId)")
+        print("[PremiumFeedPostCard] Current like state: \(isLiked), likes count: \(localLikesCount)")
         
         // Immediate UI feedback
         let wasLiked = isLiked
+        let originalLikesCount = localLikesCount
+        
         isLiked.toggle()
         
         if isLiked {
@@ -1077,6 +1085,8 @@ struct PremiumFeedPostCard: View {
         } else {
             localLikesCount -= 1
         }
+        
+        print("[PremiumFeedPostCard] Optimistic update: isLiked=\(isLiked), localLikesCount=\(localLikesCount)")
         
         // Animation feedback
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -1098,25 +1108,30 @@ struct PremiumFeedPostCard: View {
         Task {
             do {
                 if isLiked {
+                    print("[PremiumFeedPostCard] 👍 Calling postService.like")
                     try await postService.like(post: post, by: currentUserId)
                 } else {
+                    print("[PremiumFeedPostCard] 👎 Calling postService.unlike")
                     try await postService.unlike(post: post, by: currentUserId)
                 }
+                
+                print("[PremiumFeedPostCard] ✅ Backend update successful")
                 
                 let notificationFeedback = UINotificationFeedbackGenerator()
                 notificationFeedback.notificationOccurred(.success)
                 
             } catch {
+                print("[PremiumFeedPostCard] ❌ Backend update failed: \(error.localizedDescription)")
+                
                 // Revert on error
                 await MainActor.run {
+                    print("[PremiumFeedPostCard] 🔄 Reverting optimistic update")
                     isLiked = wasLiked
-                    localLikesCount = wasLiked ? localLikesCount + 1 : localLikesCount - 1
+                    localLikesCount = originalLikesCount
                     
                     let errorFeedback = UINotificationFeedbackGenerator()
                     errorFeedback.notificationOccurred(.error)
                 }
-                
-                print("[PremiumFeedPostCard] Error toggling like: \(error)")
             }
         }
     }
