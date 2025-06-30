@@ -110,7 +110,7 @@ final class SessionStore: ObservableObject {
         email: firebaseUser.email ?? "",
         fullName: firebaseUser.displayName ?? "User",
         isEmailVerified: firebaseUser.isEmailVerified,
-        createdAt: firebaseUser.metadata.creationDate ?? Date()
+        createdAt: Timestamp(date: firebaseUser.metadata.creationDate ?? Date())
     )
     
     // CRITICAL: Remove premature updateData call - wait until user is fetched
@@ -124,13 +124,13 @@ final class SessionStore: ObservableObject {
         self.role = user.role
         self.assignedDietitianId = user.assignedDietitianId ?? ""
         
-        print("[SessionStore] ✅ User fully loaded - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
+        print("[SessionStore] User fully loaded - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
         
         // CRITICAL: Set isLoggedIn = true ONLY after role is determined
         self.isLoggedIn = true
         self.isLoadingUser = false
         
-        print("[SessionStore] ✅ Navigation ready - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
+        print("[SessionStore] Navigation ready - Role: '\(self.role)', Logged in: \(self.isLoggedIn)")
         
         // Setup other services after user is fully loaded
         self.setupNotificationListener()
@@ -191,14 +191,14 @@ final class SessionStore: ObservableObject {
                     return
                 }
                 
-                print("[SessionStore] 📄 Raw Firestore document data: \(document.data() ?? [:])")
+                print("[SessionStore] Raw Firestore document data: \(document.data() ?? [:])")
                 
                 do {
                     var user = try document.data(as: FitConnectUser.self)
                     user.id = uid
                     user.isEmailVerified = fallbackUser.isEmailVerified
                     
-                    print("[SessionStore] ✅ User decoded from Firestore - Role: '\(user.role)'")
+                    print("[SessionStore] User decoded from Firestore - Role: '\(user.role)'")
                     completion(user)
                     
                 } catch {
@@ -225,7 +225,7 @@ final class SessionStore: ObservableObject {
   }
 
   private func resetSession() {
-    print("[SessionStore] 🔄 Resetting session state...")
+    print("[SessionStore] Resetting session state...")
     
     // Reset all published properties
     isLoggedIn = false
@@ -242,11 +242,11 @@ final class SessionStore: ObservableObject {
     // Remove notification listener if still active
     removeNotificationListener()
     
-    print("[SessionStore] ✅ Session reset completed")
+    print("[SessionStore] Session reset completed")
   }
 
   func signOut() {
-    print("[SessionStore] 🚪 Starting SessionStore sign out...")
+    print("[SessionStore] Starting SessionStore sign out...")
     
     // First, remove listeners to prevent interference
     removeNotificationListener()
@@ -254,17 +254,17 @@ final class SessionStore: ObservableObject {
     do {
         // Sign out through AuthService (which handles Firebase + Google)
         try AuthService.shared.signOut()
-        print("[SessionStore] ✅ AuthService sign out successful")
+        print("[SessionStore] AuthService sign out successful")
         
     } catch {
-        print("[SessionStore] 🔴 AuthService sign out error: \(error.localizedDescription)")
+        print("[SessionStore] AuthService sign out error: \(error.localizedDescription)")
         // Continue with session reset even if sign out fails
     }
     
     // Always reset the session state (including isLoadingUser)
     resetSession()
     
-    print("[SessionStore] ✅ SessionStore sign out completed")
+    print("[SessionStore] SessionStore sign out completed")
   }
 
   func updateLastOnline() {
@@ -360,7 +360,7 @@ final class SessionStore: ObservableObject {
 
       store.isLoggedIn = isLoggedIn
       if isLoggedIn {
-          var previewUser = FitConnectUser(id: "previewUserID", email: "preview@example.com", fullName: "Preview User", createdAt: Date())
+          var previewUser = FitConnectUser(id: "previewUserID", email: "preview@example.com", fullName: "Preview User", createdAt: Timestamp(date: Date())) 
           previewUser.xp = 100
           previewUser.isEmailVerified = true
           previewUser.role = role

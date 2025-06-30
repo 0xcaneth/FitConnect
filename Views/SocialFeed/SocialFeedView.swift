@@ -100,9 +100,6 @@ struct SocialFeedView: View {
                     }
                 }
             }
-            .navigationDestination(for: Post.self) { post in
-                PostDetailView(post: post)
-            }
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .sheet(isPresented: $showingCreatePostView) {

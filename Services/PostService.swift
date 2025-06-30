@@ -99,7 +99,9 @@ final class PostService: ObservableObject {
                 print("[PostService] Feed snapshot received with \(documents.count) documents.")
                 let newPosts = documents.compactMap { doc in
                     do {
-                        return try doc.data(as: Post.self)
+                        var post = try doc.data(as: Post.self)
+                        post.id = doc.documentID // Manually set ID
+                        return post
                     } catch {
                         print("[PostService] Error decoding post document \(doc.documentID): \(error)")
                         return nil

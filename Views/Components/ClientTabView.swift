@@ -5,6 +5,7 @@ struct ClientTabView: View {
     @State private var selectedTab = 0
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var healthKitManager: HealthKitManager
+    @StateObject private var postService = PostService.shared
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -27,8 +28,9 @@ struct ClientTabView: View {
                 }
                 .tag(1)
             
-            // Feed Tab
-            SocialFeedView()
+            // Feed Tab - CHANGE: Use new premium FeedView
+            FeedView()
+                .environmentObject(postService) 
                 .tabItem {
                     Image(systemName: selectedTab == 2 ? "text.bubble.fill" : "text.bubble")
                         .font(.system(size: 20))
@@ -79,6 +81,8 @@ struct ClientTabView: View {
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+            
+            postService.configure(sessionStore: session)
         }
     }
 }
