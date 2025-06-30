@@ -12,12 +12,60 @@ struct PremiumChallengeCard: View {
     @State private var glowIntensity = 0.5
     @State private var rotationAngle = 0.0
     
-    private var categoryGradient: LinearGradient {
-        LinearGradient(
-            colors: challenge.category.gradient,
+    private var challengeGradient: LinearGradient {
+        let colors: [Color]
+        
+        switch challenge.title {
+        case "10K Steps Master", "10k Steps Master":
+            // Neon mavi gradient - daha canlı
+            colors = [Color(red: 0.0, green: 0.48, blue: 1.0), Color(red: 0.3, green: 0.7, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 1.0)]
+        case "Calorie Crusher":
+            // Ateş gradient - turuncu-kırmızı-sarı
+            colors = [Color(red: 1.0, green: 0.1, blue: 0.0), Color(red: 1.0, green: 0.4, blue: 0.0), Color(red: 1.0, green: 0.7, blue: 0.0)]
+        case "Distance Runner":
+            // Neon yeşil gradient - elektrik yeşili
+            colors = [Color(red: 0.0, green: 0.8, blue: 0.3), Color(red: 0.2, green: 1.0, blue: 0.5), Color(red: 0.0, green: 1.0, blue: 0.8)]
+        case "Hydration Hero":
+            // Okyanus mavisi gradient - su teması
+            colors = [Color(red: 0.0, green: 0.7, blue: 1.0), Color(red: 0.3, green: 0.9, blue: 1.0), Color(red: 0.0, green: 0.9, blue: 0.9)]
+        case "Mindful Minutes":
+            // Sunset gradient - mor-pembe-turuncu
+            colors = [Color(red: 0.6, green: 0.2, blue: 1.0), Color(red: 0.9, green: 0.3, blue: 0.8), Color(red: 1.0, green: 0.5, blue: 0.7)]
+        case "Nutrition Navigator":
+            // Tropical gradient - yeşil-sarı-turuncu
+            colors = [Color(red: 0.5, green: 0.8, blue: 0.0), Color(red: 0.8, green: 1.0, blue: 0.2), Color(red: 1.0, green: 0.8, blue: 0.0)]
+        default:
+            colors = challenge.category.gradient
+        }
+        
+        return LinearGradient(
+            colors: colors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+    }
+    
+    private var challengeIcon: String {
+        switch challenge.title {
+        case "10K Steps Master", "10k Steps Master":
+            return "figure.walk.motion" // Hareket halinde yürüyen figür
+        case "Calorie Crusher":
+            return "flame.fill" // Ateş ikonu - enerji yakar
+        case "Distance Runner":
+            return "figure.run.circle.fill" // Koşucu daire içinde
+        case "Hydration Hero":
+            return "drop.triangle.fill" // Premium su damlası
+        case "Mindful Minutes":
+            return "brain.head.profile.fill" // Beyin/mindfulness
+        case "Nutrition Navigator":
+            return "carrot.fill" // Havuç - beslenme teması
+        default:
+            return challenge.iconName
+        }
+    }
+    
+    private var categoryGradient: LinearGradient {
+        challengeGradient
     }
     
     var body: some View {
@@ -63,35 +111,42 @@ struct PremiumChallengeCard: View {
                         
                         Spacer()
                         
-                        // Challenge Icon with glow effect
+                        // Challenge Icon with premium effects
                         ZStack {
+                            // Outer glow ring
                             Circle()
                                 .fill(
                                     RadialGradient(
                                         colors: [
-                                            challenge.category.gradient[0].opacity(glowIntensity),
+                                            challenge.category.gradient[0].opacity(glowIntensity * 0.8),
+                                            challenge.category.gradient[1].opacity(glowIntensity * 0.4),
                                             Color.clear
                                         ],
                                         center: .center,
-                                        startRadius: 25,
-                                        endRadius: 50
+                                        startRadius: 20,
+                                        endRadius: 60
                                     )
                                 )
-                                .frame(width: 70, height: 70)
-                                .scaleEffect(isPressed ? 0.9 : 1.0)
+                                .frame(width: 80, height: 80)
+                                .scaleEffect(isPressed ? 0.85 : 1.0)
                             
+                            // Inner circle with gradient
                             Circle()
-                                .fill(categoryGradient.opacity(0.2))
-                                .frame(width: 60, height: 60)
+                                .fill(challengeGradient.opacity(0.2))
+                                .frame(width: 65, height: 65)
                                 .overlay(
                                     Circle()
-                                        .stroke(categoryGradient, lineWidth: 2)
+                                        .stroke(challengeGradient, lineWidth: 3)
+                                        .shadow(color: challenge.category.gradient[0].opacity(0.6), radius: 8, x: 0, y: 4)
                                 )
                             
-                            Image(systemName: challenge.iconName)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(categoryGradient)
+                            // Icon with enhanced styling
+                            Image(systemName: challengeIcon)
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(challengeGradient)
                                 .rotationEffect(.degrees(rotationAngle))
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                .scaleEffect(isPressed ? 0.9 : 1.0)
                         }
                     }
                     
@@ -226,6 +281,7 @@ struct PremiumChallengeCard: View {
                                 
                                 Text("\(challenge.participantCount)")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
                             }
                             .foregroundColor(.white)
                             .frame(width: 80, height: 48)

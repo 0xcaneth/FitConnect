@@ -151,6 +151,7 @@ class ChallengeService: ObservableObject {
     
     private func fetchAvailableChallenges() {
         isLoading = true
+        print("[ChallengeService] 🔍 Starting to fetch available challenges...")
         
         db.collection("challenges")
             .whereField("isActive", isEqualTo: true)
@@ -159,30 +160,58 @@ class ChallengeService: ObservableObject {
                 
                 Task { @MainActor in
                     if let error = error {
+                        print("[ChallengeService] ❌ Error fetching challenges: \(error.localizedDescription)")
                         self.errorMessage = error.localizedDescription
                         self.isLoading = false
                         return
                     }
                     
                     guard let documents = snapshot?.documents else {
+                        print("[ChallengeService] ⚠️ No documents in snapshot")
                         self.availableChallenges = []
                         self.isLoading = false
                         return
+                    }
+                    
+                    print("[ChallengeService] 📄 Found \(documents.count) documents in challenges collection")
+                    
+                    // Debug: Print all document IDs and basic data
+                    for (index, document) in documents.enumerated() {
+                        print("[ChallengeService] Document \(index + 1): ID = \(document.documentID)")
+                        let data = document.data()
+                        print("  - title: \(data["title"] as? String ?? "N/A")")
+                        print("  - isActive: \(data["isActive"] as? Bool ?? false)")
+                        print("  - category: \(data["category"] as? String ?? "N/A")")
+                        
+                        print("  - category field exists: \(data["category"] != nil)")
+                        print("  - category key: '\(data.keys.first(where: { $0.contains("category") }) ?? "none")'")
+                        print("  - unit field exists: \(data["unit"] != nil)")
+                        print("  - unit key: '\(data.keys.first(where: { $0.contains("unit") }) ?? "none")'")
+                        print("  - participantCount field exists: \(data["participantCount"] != nil)")
+                        print("  - participantCount key: '\(data.keys.first(where: { $0.contains("participant") }) ?? "none")'")
                     }
                     
                     self.availableChallenges = documents.compactMap { document in
                         do {
                             var challenge = try document.data(as: Challenge.self)
                             challenge.id = document.documentID
+                            print("[ChallengeService] ✅ Successfully decoded challenge: \(challenge.title)")
                             return challenge
                         } catch {
-                            print("[ChallengeService] Error decoding challenge: \(error)")
+                            print("[ChallengeService] ❌ Error decoding challenge \(document.documentID): \(error)")
+                            let data = document.data()
+                            print("  Raw data keys: \(Array(data.keys).sorted())")
                             return nil
                         }
                     }.sorted { $0.createdAt?.dateValue() ?? Date() > $1.createdAt?.dateValue() ?? Date() }
                     
                     self.isLoading = false
-                    print("[ChallengeService] Loaded \(self.availableChallenges.count) available challenges")
+                    print("[ChallengeService] 🎯 Final result: Loaded \(self.availableChallenges.count) available challenges")
+                    
+                    // Print final challenge titles
+                    for (index, challenge) in self.availableChallenges.enumerated() {
+                        print("  \(index + 1). \(challenge.title) (\(challenge.category.title))")
+                    }
                 }
             }
     }
