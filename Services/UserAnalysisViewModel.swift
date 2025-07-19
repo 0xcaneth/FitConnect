@@ -348,27 +348,42 @@ final class UserAnalysisViewModel: ObservableObject {
                     id: UUID(),
                     name: "Protein",
                     percentage: (totalProtein / total) * 100,
-                    color: Color(hex: "#FF6B6B")
+                    color: Color(red: 1.0, green: 0.42, blue: 0.42)
                 ),
                 MacronutrientData(
                     id: UUID(),
                     name: "Fat",
                     percentage: (totalFat / total) * 100,
-                    color: Color(hex: "#4ECDC4")
+                    color: Color(red: 0.306, green: 0.804, blue: 0.769)
                 ),
                 MacronutrientData(
                     id: UUID(),
                     name: "Carbs",
                     percentage: (totalCarbs / total) * 100,
-                    color: Color(hex: "#45B7D1")
+                    color: Color(red: 0.271, green: 0.718, blue: 0.82)
                 )
             ]
         } else {
             // Default values if no meal data
             macronutrientData = [
-                MacronutrientData(id: UUID(), name: "Protein", percentage: 30, color: Color(hex: "#FF6B6B")),
-                MacronutrientData(id: UUID(), name: "Fat", percentage: 30, color: Color(hex: "#4ECDC4")),
-                MacronutrientData(id: UUID(), name: "Carbs", percentage: 40, color: Color(hex: "#45B7D1"))
+                MacronutrientData(
+                    id: UUID(), 
+                    name: "Protein", 
+                    percentage: 30, 
+                    color: Color(red: 1.0, green: 0.42, blue: 0.42)
+                ),
+                MacronutrientData(
+                    id: UUID(), 
+                    name: "Fat", 
+                    percentage: 30, 
+                    color: Color(red: 0.306, green: 0.804, blue: 0.769)
+                ),
+                MacronutrientData(
+                    id: UUID(), 
+                    name: "Carbs", 
+                    percentage: 40, 
+                    color: Color(red: 0.271, green: 0.718, blue: 0.82)
+                )
             ]
         }
     }

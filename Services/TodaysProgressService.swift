@@ -124,7 +124,7 @@ final class TodaysProgressService: ObservableObject {
                 goal: 10000,
                 unit: "steps",
                 icon: "figure.walk",
-                color: Color(hex: "#3CD76B")
+                color: Color(hex: "3CD76B")
             )
             
             caloriesData = ProgressMetric(
@@ -132,7 +132,7 @@ final class TodaysProgressService: ObservableObject {
                 goal: 500,
                 unit: "kcal",
                 icon: "flame.fill",
-                color: Color(hex: "#FF8E3C")
+                color: Color(hex: "FF8E3C")
             )
             
             waterData = ProgressMetric(
@@ -140,7 +140,7 @@ final class TodaysProgressService: ObservableObject {
                 goal: 2000,
                 unit: "mL",
                 icon: "drop.fill",
-                color: Color(hex: "#3C9CFF")
+                color: Color(hex: "3C9CFF")
             )
             
             sleepData = ProgressMetric(
@@ -148,7 +148,7 @@ final class TodaysProgressService: ObservableObject {
                 goal: 8,
                 unit: "hours",
                 icon: "bed.double.fill",
-                color: Color(hex: "#8B5FBF")
+                color: Color(hex: "8B5FBF")
             )
         }
     }
@@ -192,7 +192,7 @@ final class TodaysProgressService: ObservableObject {
                             goal: 2000, // Daily calorie goal
                             unit: "kcal",
                             icon: "fork.knife",
-                            color: Color(hex: "#26C6DA"),
+                            color: Color(hex: "26C6DA"),
                             subtitle: "consumed"
                         )
                     }
@@ -201,9 +201,9 @@ final class TodaysProgressService: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
-            stopListening()
-        }
+        print("[TodaysProgressService] Deinitializing...")
+        listener?.remove()
+        listener = nil
     }
 }
 

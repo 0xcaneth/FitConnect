@@ -21,6 +21,7 @@ struct ClientHomeView: View {
     @State private var showingLogMeal = false
     @State private var showingAppointments = false
     @State private var showingAnalytics = false
+    @State private var showingWorkout = false
 
     var body: some View {
         ScrollView {
@@ -85,6 +86,11 @@ struct ClientHomeView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black)
+            }
+        }
+        .sheet(isPresented: $showingWorkout) {
+            NavigationView {
+                WorkoutView()
             }
         }
         .alert("Error", isPresented: $showError) {
@@ -294,13 +300,23 @@ struct ClientHomeView: View {
                 
                 HStack(spacing: 12) {
                     quickActionButton(
+                        title: "Workout",
+                        icon: "figure.run",
+                        gradient: GradientColors(start: Color(hex: "4CAF50"), end: Color(hex: "8BC34A"))
+                    ) {
+                        showingWorkout = true
+                    }
+                    
+                    quickActionButton(
                         title: "Stats",
                         icon: "chart.bar.fill",
                         gradient: GradientColors(start: Color(hex: "#42A5F5"), end: Color(hex: "#1E88E5"))
                     ) {
                         showingAnalytics = true
                     }
-                    
+                }
+                
+                HStack(spacing: 12) {
                     quickActionButton(
                         title: "Appointments",
                         icon: "calendar",
@@ -308,6 +324,16 @@ struct ClientHomeView: View {
                         isDisabled: session.currentUser?.expertId?.isEmpty ?? true
                     ) {
                         openAppointments()
+                    }
+                    
+                    // Placeholder for future feature
+                    quickActionButton(
+                        title: "Coming Soon",
+                        icon: "sparkles",
+                        gradient: GradientColors(start: Color.gray.opacity(0.5), end: Color.gray.opacity(0.3)),
+                        isDisabled: true
+                    ) {
+                        // Future feature
                     }
                 }
             }

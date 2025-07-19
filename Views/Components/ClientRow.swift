@@ -14,7 +14,10 @@ struct DietitianClientRow: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            gradient: Gradient(colors: [Color(hex: "#6E56E9"), Color(hex: "#8B7FF7")]),
+                            gradient: Gradient(colors: [
+                                Color(red: 0.431, green: 0.337, blue: 0.914), // #6E56E9
+                                Color(red: 0.545, green: 0.498, blue: 0.969)  // #8B7FF7
+                            ]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -39,14 +42,14 @@ struct DietitianClientRow: View {
                     // Online indicator
                     if client.lastOnline.isOnline {
                         Circle()
-                            .fill(Color(hex: "#22C55E"))
+                            .fill(Color(red: 0.133, green: 0.773, blue: 0.369)) // #22C55E
                             .frame(width: 8, height: 8)
                     }
                 }
                 
                 Text(client.lastOnline.timeAgoString())
                     .font(.system(size: 14, design: .rounded))
-                    .foregroundColor(Color(hex: "#B0B3BA"))
+                    .foregroundColor(Color(red: 0.690, green: 0.702, blue: 0.729)) // #B0B3BA
             }
             
             Spacer()
@@ -55,12 +58,12 @@ struct DietitianClientRow: View {
             VStack(spacing: 4) {
                 Image(systemName: "link.circle.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(Color(hex: "#22C55E"))
+                    .foregroundColor(Color(red: 0.133, green: 0.773, blue: 0.369)) // #22C55E
                 
                 if let connectedAt = client.connectedAt {
                     Text("Since \(connectedAt, format: .dateTime.month().day())")
                         .font(.system(size: 10, design: .rounded))
-                        .foregroundColor(Color(hex: "#8A8F9B"))
+                        .foregroundColor(Color(red: 0.541, green: 0.561, blue: 0.608)) // #8A8F9B
                 }
             }
         }
@@ -68,7 +71,7 @@ struct DietitianClientRow: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(hex: "#1E1F25"))
+                .fill(Color(red: 0.118, green: 0.122, blue: 0.145)) // #1E1F25
                 .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
         )
     }
@@ -97,7 +100,7 @@ struct DietitianClientRow_Previews: PreviewProvider {
             ))
         }
         .padding()
-        .background(Color(hex: "#0D0F14"))
+        .background(Color(red: 0.051, green: 0.059, blue: 0.078)) // #0D0F14
         .preferredColorScheme(.dark)
     }
 }

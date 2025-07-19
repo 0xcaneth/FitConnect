@@ -59,7 +59,7 @@ struct ClientTabView: View {
                 }
                 .tag(4)
         }
-        .accentColor(Color(hex: "#8E24AA"))
+        .accentColor(Color(red: 0.557, green: 0.141, blue: 0.667)) // #8E24AA
         .preferredColorScheme(.dark)
         .onAppear {
             // Customize tab bar appearance

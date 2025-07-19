@@ -169,13 +169,6 @@ struct SocialFeedView: View {
     }
 }
 
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 #if DEBUG
 @available(iOS 16.0, *)
 struct SocialFeedView_Previews: PreviewProvider {
