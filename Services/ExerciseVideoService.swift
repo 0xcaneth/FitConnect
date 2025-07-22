@@ -9,6 +9,10 @@ class ExerciseVideoService: ObservableObject {
     private var exerciseCache: [String: String] = [:]
     private let cacheQueue = DispatchQueue(label: "com.fitconnect.videocache", qos: .background)
     
+    // CRITICAL: Ultra-fast timeout for better UX
+    private let fastTimeout: TimeInterval = 3.0  // 3 seconds MAX
+    private let ultraFastTimeout: TimeInterval = 1.5  // 1.5 seconds for cached lookups
+    
     // Exercise name to Firebase Storage file mapping - PRODUCTION READY
     private let exerciseVideoMappings: [String: String] = [
         // STRENGTH TRAINING (4 videos)
@@ -72,64 +76,157 @@ class ExerciseVideoService: ObservableObject {
     
     private init() {
         loadCachedURLs()
+        
+        // CRITICAL: Pre-load most common videos immediately
+        Task {
+            await preloadCriticalVideos()
+        }
     }
     
-    /// Fetch exercise video URL from Firebase Storage with caching
-    func fetchExerciseVideo(for exerciseName: String) async -> URL? {
-        let normalizedName = normalizeExerciseName(exerciseName)
+    /// CRITICAL: Pre-load most commonly used videos for instant access
+    private func preloadCriticalVideos() async {
+        let criticalVideos = [
+            "mountain climbers",
+            "jumping jacks", 
+            "high knees",
+            "burpees",
+            "plank",
+            "squats"
+        ]
         
-        // 🐛 DEBUG: Hip Flexor için özel debug
-        if exerciseName.lowercased().contains("hip flexor") {
-            print("🔍 [DEBUG] Hip Flexor Video Debug Started")
-            print("🔍 [DEBUG] Original name: '\(exerciseName)'")
-            print("🔍 [DEBUG] Normalized name: '\(normalizedName)'")
-            
-            let filename = getVideoFilename(for: normalizedName)
-            print("🔍 [DEBUG] Mapped filename: '\(filename ?? "NIL")'")
-            
-            if let filename = filename {
-                let storagePath = "exercises/\(filename)"
-                print("🔍 [DEBUG] Full storage path: '\(storagePath)'")
-                
-                // Test Firebase Storage erişimi
-                let storageRef = storage.reference().child(storagePath)
-                print("🔍 [DEBUG] Storage reference created")
-                
-                do {
-                    let downloadURL = try await storageRef.downloadURL()
-                    print("🔍 [DEBUG] ✅ SUCCESS! Download URL: \(downloadURL)")
-                    setCachedURL(downloadURL.absoluteString, for: normalizedName)
-                    return downloadURL
-                    
-                } catch {
-                    print("🔍 [DEBUG] ❌ FIREBASE ERROR: \(error)")
-                    print("🔍 [DEBUG] Error type: \(type(of: error))")
-                    if let storageError = error as NSError? {
-                        print("🔍 [DEBUG] Error code: \(storageError.code)")
-                        print("🔍 [DEBUG] Error domain: \(storageError.domain)")
-                        print("🔍 [DEBUG] Error description: \(storageError.localizedDescription)")
-                    }
-                    return await getFallbackVideo()
-                }
-            } else {
-                print("🔍 [DEBUG] ❌ NO FILENAME MAPPING FOUND")
-                return await getFallbackVideo()
+        print("[VideoService] 🚀 Pre-loading critical videos for instant access")
+        
+        for exerciseName in criticalVideos {
+            // Load in background - don't block UI
+            Task.detached(priority: .background) {
+                _ = await self.fetchExerciseVideoFast(for: exerciseName)
             }
         }
+    }
+    
+    /// ULTRA-FAST video fetch with aggressive timeout and immediate fallback
+    func fetchExerciseVideo(for exerciseName: String) async throws -> URL {
+        print("[VideoService] 🎯 FETCH STARTED for: \(exerciseName)")
+        let startTime = Date()
         
-        // Normal flow for other exercises
-        // Check cache first for instant response
+        do {
+            let result = try await fetchExerciseVideoWithTimeout(for: exerciseName, timeout: fastTimeout)
+            let duration = Date().timeIntervalSince(startTime)
+            print("[VideoService] ✅ SUCCESS in \(String(format: "%.2f", duration))s for: \(exerciseName)")
+            return result
+        } catch {
+            let duration = Date().timeIntervalSince(startTime)
+            print("[VideoService] ❌ FAILED in \(String(format: "%.2f", duration))s for: \(exerciseName) - Error: \(error)")
+            
+            // CRITICAL: Try fallback immediately
+            return try await getFallbackVideoOrThrow()
+        }
+    }
+    
+    /// Get fallback video or throw error
+    private func getFallbackVideoOrThrow() async throws -> URL {
+        print("[VideoService] 🔄 Attempting fallback video...")
+        
+        do {
+            let defaultFilename = exerciseVideoMappings["default"]!
+            let defaultPath = "exercises/\(defaultFilename)"
+            let defaultRef = storage.reference().child(defaultPath)
+            let defaultURL = try await defaultRef.downloadURL()
+            
+            print("[VideoService] ✅ Fallback success: \(defaultFilename)")
+            return defaultURL
+            
+        } catch {
+            print("[VideoService] ❌ Even fallback failed: \(error)")
+            throw VideoServiceError.networkError
+        }
+    }
+    
+    /// FASTEST possible video fetch - used for critical path
+    private func fetchExerciseVideoFast(for exerciseName: String) async -> URL? {
+        do {
+            return try await fetchExerciseVideoWithTimeout(for: exerciseName, timeout: ultraFastTimeout)
+        } catch {
+            print("[VideoService] ⚡ Ultra-fast fetch failed for \(exerciseName): \(error)")
+            return nil
+        }
+    }
+    
+    /// Core video fetch with configurable timeout
+    private func fetchExerciseVideoWithTimeout(for exerciseName: String, timeout: TimeInterval) async throws -> URL {
+        let normalizedName = normalizeExerciseName(exerciseName)
+        print("[VideoService] 🔍 Normalized '\(exerciseName)' to '\(normalizedName)'")
+        
+        return try await withThrowingTaskGroup(of: URL.self) { group in
+            // Task 1: Try to get video (with timeout)
+            group.addTask {
+                return try await self.fetchVideoCore(for: normalizedName, exerciseName: exerciseName)
+            }
+            
+            // Task 2: Timeout task
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                print("[VideoService] ⏰ TIMEOUT after \(timeout)s for: \(exerciseName)")
+                throw VideoServiceError.timeout
+            }
+            
+            // Return first result (either success or timeout)
+            guard let result = try await group.next() else {
+                throw VideoServiceError.timeout
+            }
+            
+            group.cancelAll()
+            return result
+        }
+    }
+    
+    /// Core video fetching logic
+    private func fetchVideoCore(for normalizedName: String, exerciseName: String) async throws -> URL {
+        print("[VideoService] 🔍 Core fetch for: \(normalizedName)")
+        
+        // Step 1: Check cache (instant)
         if let cachedURL = await getCachedURL(for: normalizedName) {
-            return URL(string: cachedURL)
+            print("[VideoService] ⚡ Cache HIT for: \(exerciseName)")
+            return URL(string: cachedURL)!
+        } else {
+            print("[VideoService] 💾 Cache MISS for: \(exerciseName)")
         }
         
-        // Get Firebase Storage filename
+        // Step 2: Get Firebase Storage filename
         guard let filename = getVideoFilename(for: normalizedName) else {
-            print("[VideoService] ⚠️ No video mapping for: \(exerciseName)")
-            return await getFallbackVideo()
+            print("[VideoService] ❌ NO MAPPING for: '\(normalizedName)' from '\(exerciseName)'")
+            print("[VideoService] 🗺️ Available mappings: \(Array(exerciseVideoMappings.keys).prefix(5))")
+            throw VideoServiceError.notFound
         }
         
-        return await fetchVideoFromStorage(filename: filename, cacheKey: normalizedName)
+        print("[VideoService] 📁 Found mapping: '\(normalizedName)' -> '\(filename)'")
+        
+        // Step 3: Fetch from Firebase Storage
+        return try await fetchVideoFromStorageFast(filename: filename, cacheKey: normalizedName)
+    }
+    
+    /// Fast Firebase Storage fetch
+    private func fetchVideoFromStorageFast(filename: String, cacheKey: String) async throws -> URL {
+        let storagePath = "exercises/\(filename)"
+        print("[VideoService] 📡 Fetching from Firebase: \(storagePath)")
+        
+        let storageRef = storage.reference().child(storagePath)
+        
+        do {
+            let downloadURL = try await storageRef.downloadURL()
+            print("[VideoService] ✅ Firebase SUCCESS: \(filename)")
+            
+            // Cache for next time
+            setCachedURL(downloadURL.absoluteString, for: cacheKey)
+            
+            return downloadURL
+        } catch {
+            print("[VideoService] ❌ Firebase FAILED for \(filename): \(error)")
+            if let storageError = error as NSError? {
+                print("[VideoService] 📊 Error code: \(storageError.code), domain: \(storageError.domain)")
+            }
+            throw error
+        }
     }
     
     /// Prefetch videos for better user experience
@@ -145,11 +242,11 @@ class ExerciseVideoService: ObservableObject {
                     continue
                 }
                 
-                // Prefetch video URL
-                _ = await self.fetchExerciseVideo(for: exerciseName)
+                // Prefetch video URL with fast timeout
+                _ = await self.fetchExerciseVideoFast(for: exerciseName)
                 
                 // Small delay to avoid overwhelming Firebase
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
             }
             
             print("[VideoService] ✅ Prefetch completed")
@@ -198,43 +295,6 @@ class ExerciseVideoService: ObservableObject {
         }
     }
     
-    private func fetchVideoFromStorage(filename: String, cacheKey: String) async -> URL? {
-        let storagePath = "exercises/\(filename)"
-        
-        do {
-            let storageRef = storage.reference().child(storagePath)
-            let downloadURL = try await storageRef.downloadURL()
-            
-            print("[VideoService] ✅ Fetched video: \(filename)")
-            
-            // Cache the URL for future use
-            setCachedURL(downloadURL.absoluteString, for: cacheKey)
-            
-            return downloadURL
-            
-        } catch {
-            print("[VideoService] ❌ Error fetching \(filename): \(error)")
-            return await getFallbackVideo()
-        }
-    }
-    
-    private func getFallbackVideo() async -> URL? {
-        do {
-            let defaultFilename = exerciseVideoMappings["default"]!
-            let defaultPath = "exercises/\(defaultFilename)"
-            let defaultRef = storage.reference().child(defaultPath)
-            let defaultURL = try await defaultRef.downloadURL()
-            
-            print("[VideoService] 🔄 Using fallback video: \(defaultFilename)")
-            return defaultURL
-            
-        } catch {
-            print("[VideoService] ❌ Even fallback failed: \(error)")
-            // Return nil - let UI handle the no-video case gracefully
-            return nil
-        }
-    }
-    
     private func saveCachedURLs() {
         UserDefaults.standard.set(exerciseCache, forKey: "ExerciseVideoCache")
     }
@@ -247,6 +307,14 @@ class ExerciseVideoService: ObservableObject {
             }
         }
     }
+}
+
+// MARK: - Error Types
+enum VideoServiceError: Error {
+    case timeout
+    case notFound
+    case networkError
+    case invalidURL
 }
 
 // MARK: - Cache Statistics (Debug)

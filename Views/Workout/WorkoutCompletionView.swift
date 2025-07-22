@@ -10,7 +10,6 @@ struct WorkoutCompletionView: View {
     
     @State private var showCelebration = false
     @State private var animateStats = false
-    @State private var showConfetti = false
     @State private var currentStatIndex = 0
     
     var body: some View {
@@ -42,12 +41,6 @@ struct WorkoutCompletionView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 60)
             }
-            
-            // Confetti animation
-            if showConfetti {
-                ConfettiView()
-                    .ignoresSafeArea()
-            }
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -55,66 +48,50 @@ struct WorkoutCompletionView: View {
         }
     }
     
-    // MARK: - Background
+    // MARK: - Background - FIXED WITH DARK THEME FROM SECOND IMAGE
     
     @ViewBuilder
     private var celebrationBackground: some View {
         ZStack {
-            // Base gradient
+            // BASE DARK GRADIENT BACKGROUND - LIKE SECOND IMAGE
             LinearGradient(
                 colors: [
-                    Color(hex: workout.workoutType.primaryColor).opacity(0.3),
-                    Color(hex: workout.workoutType.secondaryColor).opacity(0.4),
-                    .black
+                    Color(red: 0.1, green: 0.1, blue: 0.15),   // Dark navy
+                    Color(red: 0.15, green: 0.15, blue: 0.25), // Medium dark
+                    Color(red: 0.05, green: 0.05, blue: 0.1)   // Very dark
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
             
-            // Animated elements
-            ForEach(0..<5) { index in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hex: workout.workoutType.primaryColor).opacity(0.1),
-                                .clear
-                            ],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 100
-                        )
-                    )
-                    .frame(width: 200, height: 200)
-                    .offset(
-                        x: CGFloat.random(in: -150...150),
-                        y: CGFloat.random(in: -200...200)
-                    )
-                    .scaleEffect(showCelebration ? 1.5 : 0.5)
-                    .opacity(showCelebration ? 0.6 : 0)
-                    .animation(
-                        .easeOut(duration: 2.0)
-                        .delay(Double(index) * 0.2),
-                        value: showCelebration
-                    )
-            }
+            // Subtle overlay pattern - much more subtle
+            LinearGradient(
+                colors: [
+                    Color.orange.opacity(0.1),
+                    Color.clear,
+                    Color.orange.opacity(0.05)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
         }
     }
     
-    // MARK: - Celebration Header
+    // MARK: - Celebration Header - UPDATED WITH ORANGE ICON
     
     @ViewBuilder
     private var celebrationHeader: some View {
         VStack(spacing: 20) {
-            // Success icon
+            // Success icon - RESTORED ORANGE THEME
             ZStack {
                 Circle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(hex: workout.workoutType.primaryColor),
-                                Color(hex: workout.workoutType.secondaryColor)
+                                Color.orange,
+                                Color(red: 1.0, green: 0.6, blue: 0.0)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -123,6 +100,7 @@ struct WorkoutCompletionView: View {
                     .frame(width: 120, height: 120)
                     .scaleEffect(showCelebration ? 1.0 : 0.5)
                     .opacity(showCelebration ? 1.0 : 0.0)
+                    .shadow(color: .orange.opacity(0.3), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "checkmark")
                     .font(.system(size: 60, weight: .bold))
@@ -131,14 +109,6 @@ struct WorkoutCompletionView: View {
                     .opacity(showCelebration ? 1.0 : 0.0)
             }
             .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    showConfetti = true
-                    
-                    // Stop confetti after 3 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        showConfetti = false
-                    }
-                }
             }
             
             // Completion message
@@ -149,17 +119,19 @@ struct WorkoutCompletionView: View {
                     .multilineTextAlignment(.center)
                     .scaleEffect(showCelebration ? 1.0 : 0.8)
                     .opacity(showCelebration ? 1.0 : 0.0)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
                 
                 Text(workout.name)
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.white.opacity(0.95))
                     .multilineTextAlignment(.center)
                     .scaleEffect(showCelebration ? 1.0 : 0.8)
                     .opacity(showCelebration ? 1.0 : 0.0)
+                    .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
                 
                 Text(motivationalMessage)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.9))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
                     .scaleEffect(showCelebration ? 1.0 : 0.8)
@@ -178,11 +150,13 @@ struct WorkoutCompletionView: View {
                 .foregroundColor(.white)
                 .opacity(animateStats ? 1.0 : 0.0)
                 .offset(y: animateStats ? 0 : 20)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
             
+            // IMPROVED GRID WITH EQUAL SPACING
             LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 16) {
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12)
+            ], spacing: 12) {
                 CompletionStatCard(
                     title: "Duration",
                     value: formattedDuration,
@@ -198,7 +172,7 @@ struct WorkoutCompletionView: View {
                     value: "\(completionData.totalCaloriesBurned)",
                     subtitle: "kcal burned",
                     icon: "flame.fill",
-                    color: .orange,
+                    color: .red,
                     animationDelay: 0.1,
                     showAnimation: animateStats
                 )
@@ -223,6 +197,7 @@ struct WorkoutCompletionView: View {
                     showAnimation: animateStats
                 )
             }
+            .padding(.horizontal, 4) // Small padding for better spacing
         }
     }
     
@@ -234,13 +209,14 @@ struct WorkoutCompletionView: View {
             Text("Exercises Completed")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
             
             LazyVStack(spacing: 12) {
                 ForEach(Array(completionData.completedExercises.enumerated()), id: \.element.id) { index, completedExercise in
                     CompletedExerciseRow(
                         exercise: completedExercise,
                         index: index,
-                        workoutColor: Color(hex: workout.workoutType.primaryColor)
+                        workoutColor: .orange
                     )
                     .opacity(animateStats ? 1.0 : 0.0)
                     .offset(x: animateStats ? 0 : -20)
@@ -259,9 +235,10 @@ struct WorkoutCompletionView: View {
     @ViewBuilder
     private var achievementSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Achievements Unlocked! 🏆")
+            Text("Achievements Unlocked! ")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
             
             LazyVGrid(columns: [
                 GridItem(.flexible()),
@@ -281,7 +258,7 @@ struct WorkoutCompletionView: View {
         }
     }
     
-    // MARK: - Action Buttons
+    // MARK: - Action Buttons - RESTORED ORANGE THEME
     
     @ViewBuilder
     private var actionButtonsSection: some View {
@@ -301,8 +278,8 @@ struct WorkoutCompletionView: View {
                 .background(
                     LinearGradient(
                         colors: [
-                            Color(hex: workout.workoutType.primaryColor).opacity(0.8),
-                            Color(hex: workout.workoutType.secondaryColor).opacity(0.8)
+                            Color.orange.opacity(0.8),
+                            Color.red.opacity(0.8)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
@@ -313,19 +290,21 @@ struct WorkoutCompletionView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(.white.opacity(0.3), lineWidth: 1)
                 )
+                .shadow(color: .orange.opacity(0.4), radius: 8, x: 0, y: 4)
             }
             
             // Done button
             Button(action: onDone) {
                 Text("DONE")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.orange)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
                             .fill(.white)
                     )
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             }
         }
         .opacity(animateStats ? 1.0 : 0.0)
@@ -351,11 +330,11 @@ struct WorkoutCompletionView: View {
     
     private var motivationalMessage: String {
         if completionData.isFullyCompleted {
-            return "You crushed it! Every rep, every set - perfectly executed. You're getting stronger! 💪"
+            return "You crushed it! Every rep, every set - perfectly executed. You're getting stronger! "
         } else if completionData.completionPercentage > 0.7 {
-            return "Fantastic work! You pushed through and made real progress. Keep building that momentum! 🔥"
+            return "Fantastic work! You pushed through and made real progress. Keep building that momentum! "
         } else {
-            return "Every workout counts! You took the first step and that's what matters most. Tomorrow you'll go even further! 🌟"
+            return "Every workout counts! You took the first step and that's what matters most. Tomorrow you'll go even further! "
         }
     }
     
@@ -444,27 +423,35 @@ struct CompletionStatCard: View {
             
             VStack(spacing: 4) {
                 Text(value)
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(.system(size: 22, weight: .black, design: .rounded))
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 1)
                 
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(1)
                 
                 Text(subtitle)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.white.opacity(0.8))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.9)
             }
         }
-        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 140) // FIXED HEIGHT
+        .padding(.horizontal, 16)
+        .padding(.vertical, 20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
+                .fill(.white.opacity(0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(color.opacity(0.3), lineWidth: 1)
+                        .stroke(.white.opacity(0.3), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
         )
         .scaleEffect(showAnimation ? 1.0 : 0.8)
         .opacity(showAnimation ? 1.0 : 0.0)
@@ -489,48 +476,80 @@ struct CompletedExerciseRow: View {
             ZStack {
                 Circle()
                     .fill(workoutColor.opacity(0.2))
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                 
                 Text("\(index + 1)")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(workoutColor)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
             }
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(exercise.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 1)
                 
-                HStack {
+                HStack(spacing: 8) {
                     if exercise.setsCompleted > 0 {
-                        Text("\(exercise.setsCompleted) sets")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
+                        HStack(spacing: 4) {
+                            Image(systemName: "repeat.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.8))
+                            
+                            Text("\(exercise.setsCompleted) sets")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
                     
                     if exercise.duration > 0 {
-                        Text("• \(Int(exercise.duration))s")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.8))
+                            
+                            Text("\(Int(exercise.duration))s")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
                     
-                    Text("• \(exercise.caloriesBurned) kcal")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(workoutColor)
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                        
+                        Text("\(exercise.caloriesBurned) kcal")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
                 }
             }
             
             Spacer()
             
             // Checkmark
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(.green)
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.2))
+                    .frame(width: 28, height: 28)
+                
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.green)
+            }
         }
-        .padding(16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(.white.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         )
     }
 }
@@ -557,6 +576,7 @@ struct AchievementBadge: View {
                         )
                     )
                     .frame(width: 50, height: 50)
+                    .shadow(color: achievement.color.opacity(0.4), radius: 8, x: 0, y: 4)
                 
                 // Shine effect
                 if shine {
@@ -586,7 +606,7 @@ struct AchievementBadge: View {
                 
                 Text(achievement.description)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.white.opacity(0.8))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             }
@@ -594,70 +614,17 @@ struct AchievementBadge: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
+                .fill(.white.opacity(0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(achievement.color.opacity(0.5), lineWidth: 1)
+                        .stroke(.white.opacity(0.3), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         )
         .onAppear {
             shine = true
         }
     }
-}
-
-// MARK: - Confetti View
-
-struct ConfettiView: View {
-    @State private var confettiPieces: [ConfettiPiece] = []
-    
-    var body: some View {
-        ZStack {
-            ForEach(confettiPieces, id: \.id) { piece in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(piece.color)
-                    .frame(width: 8, height: 8)
-                    .position(piece.position)
-                    .rotationEffect(.degrees(piece.rotation))
-                    .opacity(piece.opacity)
-            }
-        }
-        .onAppear {
-            createConfetti()
-        }
-    }
-    
-    private func createConfetti() {
-        let colors: [Color] = [.yellow, .orange, .pink, .purple, .blue, .green, .red]
-        
-        for _ in 0..<50 {
-            let piece = ConfettiPiece(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: -50
-                ),
-                color: colors.randomElement() ?? .yellow
-            )
-            confettiPieces.append(piece)
-        }
-        
-        // Animate confetti falling
-        withAnimation(.linear(duration: 3.0)) {
-            for index in confettiPieces.indices {
-                confettiPieces[index].position.y = UIScreen.main.bounds.height + 50
-                confettiPieces[index].rotation += 360
-                confettiPieces[index].opacity = 0
-            }
-        }
-    }
-}
-
-struct ConfettiPiece {
-    let id = UUID()
-    var position: CGPoint
-    let color: Color
-    var rotation: Double = 0
-    var opacity: Double = 1.0
 }
 
 // MARK: - Supporting Types

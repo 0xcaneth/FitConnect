@@ -115,15 +115,22 @@ struct ExerciseSelectionView: View {
     let workoutType: WorkoutType
     let onExercisesSelected: ([WorkoutExercise]) -> Void
     let onDismiss: (() -> Void)?
+    let allowMultipleSelection: Bool
+    let preSelectedExercises: [WorkoutExercise]
     @Binding var showExerciseSelection: Bool
     @StateObject private var viewModel = ExerciseSelectionViewModel()
     @Environment(\.dismiss) private var dismiss
     
+    // FIXED: Add SessionStore environment object
+    @EnvironmentObject private var sessionStore: SessionStore
+
     // Default initializer (backward compatibility)
     init(workoutType: WorkoutType, onExercisesSelected: @escaping ([WorkoutExercise]) -> Void) {
         self.workoutType = workoutType
         self.onExercisesSelected = onExercisesSelected
         self.onDismiss = nil
+        self.allowMultipleSelection = false
+        self.preSelectedExercises = []
         _showExerciseSelection = .constant(true)
     }
     
@@ -132,14 +139,32 @@ struct ExerciseSelectionView: View {
         self.workoutType = workoutType
         self.onExercisesSelected = onExercisesSelected
         self.onDismiss = onDismiss
+        self.allowMultipleSelection = false
+        self.preSelectedExercises = []
         _showExerciseSelection = .constant(true)
     }
     
+    // ENHANCED initializer for Custom Workout Creator
+    init(
+        workoutType: WorkoutType,
+        allowMultipleSelection: Bool = false,
+        preSelectedExercises: [WorkoutExercise] = [],
+        onExercisesSelected: @escaping ([WorkoutExercise]) -> Void,
+        onDismiss: (() -> Void)? = nil
+    ) {
+        self.workoutType = workoutType
+        self.allowMultipleSelection = allowMultipleSelection
+        self.preSelectedExercises = preSelectedExercises
+        self.onExercisesSelected = onExercisesSelected
+        self.onDismiss = onDismiss
+        _showExerciseSelection = .constant(true)
+    }
+
     // UI States
     @State private var selectedMuscleGroup: MuscleGroup?
     @State private var selectedDifficulty: DifficultyLevel?
     @State private var searchText = ""
-    @State private var selectedExercises: Set<UUID> = []
+    @State private var selectedExercises: Set<String> = []
     @State private var showingExerciseDetail = false
     @State private var selectedExercise: WorkoutExercise?
     @State private var showCustomWorkoutBuilder = false
@@ -178,9 +203,11 @@ struct ExerciseSelectionView: View {
                     // Exercise List
                     exerciseListSection
                     
-                    // Bottom Action Bar
-                    if !selectedExercises.isEmpty {
-                        bottomActionBar
+                    // Bottom Action Bar - ENHANCED FOR MULTIPLE SELECTION
+                    if allowMultipleSelection && !selectedExercises.isEmpty {
+                        multipleSelectionBottomActionBar
+                    } else if !allowMultipleSelection && !selectedExercises.isEmpty {
+                        singleSelectionBottomActionBar
                     }
                 }
                 .opacity(showContent ? 1 : 0)
@@ -191,6 +218,10 @@ struct ExerciseSelectionView: View {
         .onAppear {
             print("[ExerciseSelection] 📱 ExerciseSelectionView appeared for: \(workoutType.displayName)")
             print("[ExerciseSelection] 🚀 ExerciseSelectionView body building for: \(workoutType.displayName)")
+            
+            // Pre-select exercises if provided
+            selectedExercises = Set(preSelectedExercises.map { $0.id })
+            
             viewModel.loadExercises(for: workoutType)
             
             withAnimation(.easeOut(duration: 0.6)) {
@@ -389,54 +420,59 @@ struct ExerciseSelectionView: View {
                 }
             }
             
-            // Filter Chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    // Muscle Group Filters
-                    FilterChip(
-                        title: "All Muscles",
-                        isSelected: selectedMuscleGroup == nil,
-                        color: Color(hex: workoutType.primaryColor)
-                    ) {
-                        withAnimation(.spring(response: 0.3)) {
-                            selectedMuscleGroup = nil
-                        }
-                    }
-                    
-                    ForEach(MuscleGroup.allCases.filter { $0 != .cardio }, id: \.self) { muscle in
+            // Filter Chips - FIXED CONTAINER
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Muscle Group Filters
                         FilterChip(
-                            title: muscle.displayName,
-                            emoji: nil,
-                            isSelected: selectedMuscleGroup == muscle,
+                            title: "All Muscles",
+                            isSelected: selectedMuscleGroup == nil,
                             color: Color(hex: workoutType.primaryColor)
                         ) {
                             withAnimation(.spring(response: 0.3)) {
-                                selectedMuscleGroup = selectedMuscleGroup == muscle ? nil : muscle
+                                selectedMuscleGroup = nil
+                            }
+                        }
+                        
+                        ForEach(MuscleGroup.allCases.filter { $0 != .cardio }, id: \.self) { muscle in
+                            FilterChip(
+                                title: muscle.displayName,
+                                emoji: nil,
+                                isSelected: selectedMuscleGroup == muscle,
+                                color: Color(hex: workoutType.primaryColor)
+                            ) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    selectedMuscleGroup = selectedMuscleGroup == muscle ? nil : muscle
+                                }
+                            }
+                        }
+                        
+                        // Difficulty Filters
+                        Rectangle()
+                            .fill(.white.opacity(0.2))
+                            .frame(width: 1, height: 30)
+                        
+                        ForEach(DifficultyLevel.allCases, id: \.self) { difficulty in
+                            FilterChip(
+                                title: difficulty.displayName,
+                                emoji: difficulty.emoji,
+                                isSelected: selectedDifficulty == difficulty,
+                                color: Color(hex: difficulty.color)
+                            ) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    selectedDifficulty = selectedDifficulty == difficulty ? nil : difficulty
+                                }
                             }
                         }
                     }
-                    
-                    // Difficulty Filters
-                    Rectangle()
-                        .fill(.white.opacity(0.2))
-                        .frame(width: 1, height: 30)
-                    
-                    ForEach(DifficultyLevel.allCases, id: \.self) { difficulty in
-                        FilterChip(
-                            title: difficulty.displayName,
-                            emoji: difficulty.emoji,
-                            isSelected: selectedDifficulty == difficulty,
-                            color: Color(hex: difficulty.color)
-                        ) {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedDifficulty = selectedDifficulty == difficulty ? nil : difficulty
-                            }
-                        }
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 20)
+                .clipShape(Rectangle()) // PREVENT OVERFLOW
+                .clipped() // ENFORCE CLIPPING
             }
-            .padding(.horizontal, -20)
+            .frame(maxHeight: 50) // FIXED HEIGHT CONTAINER
         }
     }
     
@@ -479,7 +515,8 @@ struct ExerciseSelectionView: View {
                                 exercise: exercise,
                                 isSelected: selectedExercises.contains(exercise.id),
                                 workoutTypeColor: Color(hex: workoutType.primaryColor),
-                                animationDelay: Double(index) * 0.05
+                                animationDelay: Double(index) * 0.05,
+                                allowMultipleSelection: allowMultipleSelection
                             ) { action in
                                 handleExerciseAction(action, for: exercise)
                             }
@@ -499,9 +536,61 @@ struct ExerciseSelectionView: View {
         }
     }
     
-    // MARK: - Bottom Action Bar
+    // MARK: - Bottom Action Bar for Multiple Selection
     @ViewBuilder
-    private var bottomActionBar: some View {
+    private var multipleSelectionBottomActionBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(height: 1)
+                .opacity(0.3)
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(selectedExercises.count) exercises selected")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Add to your custom workout")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    let selectedExerciseObjects = selectedExercises.compactMap { id in
+                        viewModel.exercises.first { $0.id == id }
+                    }
+                    
+                    print("[ExerciseSelection] ✅ Returning \(selectedExerciseObjects.count) selected exercises")
+                    onExercisesSelected(selectedExerciseObjects)
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                        
+                        Text("Add Selected")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 0.3, green: 0.7, blue: 0.1))
+                    )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(.ultraThinMaterial)
+        }
+    }
+    
+    // MARK: - Bottom Action Bar for Single Selection (Original behavior)
+    @ViewBuilder
+    private var singleSelectionBottomActionBar: some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(.ultraThinMaterial)
@@ -545,7 +634,7 @@ struct ExerciseSelectionView: View {
             .background(.ultraThinMaterial)
         }
     }
-    
+
     // MARK: - Helper Methods
     private func handleExerciseAction(_ action: ExerciseCard.Action, for exercise: WorkoutExercise) {
         switch action {
@@ -595,8 +684,11 @@ struct ExerciseSelectionView: View {
         
         let estimatedCalories = Int(estimatedDuration / 60 * 8) // 8 calories per minute average
         
+        // FIXED: Get current user ID from environment SessionStore
+        let currentUserId = sessionStore.currentUserId ?? ""
+        
         return WorkoutSession(
-            userId: "", // Will be set by WorkoutService
+            userId: currentUserId, // FIXED: Properly set user ID
             workoutType: workoutType,
             name: "\(workoutType.displayName) Workout",
             description: "Custom workout with \(exercises.count) exercises",
@@ -612,27 +704,43 @@ struct ExerciseSelectionView: View {
     private func handleWorkoutCompletion(_ completionData: WorkoutCompletionData) {
         print("[ExerciseSelection] 🎉 Workout completed! Duration: \(Int(completionData.totalDuration/60)) min, Calories: \(completionData.totalCaloriesBurned)")
         
-        // Save to Firebase via WorkoutService
+        // ENHANCED: First save the workout session to Firebase, then complete it
         Task {
             let workoutService = WorkoutService.shared
-            let result = await workoutService.completeWorkout(
-                workoutId: completionData.workoutId ?? UUID().uuidString,
-                actualDuration: completionData.totalDuration,
-                actualCalories: completionData.totalCaloriesBurned,
-                rating: completionData.userRating
-            )
             
-            switch result {
-            case .success():
-                print("[ExerciseSelection] ✅ Workout data saved successfully")
+            // Create the workout session and save it first
+            let workoutSession = createWorkoutSession(from: builtWorkout)
+            
+            // Save the workout session to Firebase first
+            let saveResult = await workoutService.startWorkout(workoutSession)
+            
+            switch saveResult {
+            case .success(let savedWorkoutId):
+                print("[ExerciseSelection] ✅ Workout session saved with ID: \(savedWorkoutId)")
                 
-                // Call the original callback to close all sheets
-                onExercisesSelected([]) // Empty array since workout is already completed
+                // Now complete the workout with the saved ID
+                let completeResult = await workoutService.completeWorkout(
+                    workoutId: savedWorkoutId,
+                    actualDuration: completionData.totalDuration,
+                    actualCalories: completionData.totalCaloriesBurned,
+                    rating: completionData.userRating
+                )
+                
+                switch completeResult {
+                case .success():
+                    print("[ExerciseSelection] ✅ Workout completion saved successfully")
+                    
+                case .failure(let error):
+                    print("[ExerciseSelection] ❌ Failed to save workout completion: \(error)")
+                }
                 
             case .failure(let error):
-                print("[ExerciseSelection] ❌ Failed to save workout: \(error)")
-                // Still call callback to close sheets
-                onExercisesSelected([])
+                print("[ExerciseSelection] ❌ Failed to save workout session: \(error)")
+            }
+            
+            // Always call callback to close sheets
+            await MainActor.run {
+                onExercisesSelected([]) // Empty array since workout is already completed
             }
         }
     }
@@ -644,6 +752,7 @@ struct ExerciseCard: View {
     let isSelected: Bool
     let workoutTypeColor: Color
     let animationDelay: Double
+    let allowMultipleSelection: Bool
     let onAction: (Action) -> Void
     
     @State private var showCard = false
@@ -653,9 +762,24 @@ struct ExerciseCard: View {
         case tap, select
     }
     
+    init(
+        exercise: WorkoutExercise,
+        isSelected: Bool,
+        workoutTypeColor: Color,
+        animationDelay: Double,
+        allowMultipleSelection: Bool = false,
+        onAction: @escaping (Action) -> Void
+    ) {
+        self.exercise = exercise
+        self.isSelected = isSelected
+        self.workoutTypeColor = workoutTypeColor
+        self.animationDelay = animationDelay
+        self.allowMultipleSelection = allowMultipleSelection
+        self.onAction = onAction
+    }
+    
     var body: some View {
         HStack(spacing: 16) {
-            // Exercise Thumbnail - Using fallback gradient design
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(
@@ -670,13 +794,11 @@ struct ExerciseCard: View {
                     )
                     .frame(width: 80, height: 80)
                 
-                // Exercise icon overlay
                 Image(systemName: exercise.exerciseIcon)
                     .font(.system(size: 32, weight: .semibold))
                     .foregroundColor(.white)
             }
             
-            // Exercise Details
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(exercise.name)
@@ -686,24 +808,45 @@ struct ExerciseCard: View {
                     
                     Spacer()
                     
-                    // Selection indicator
-                    Button(action: { onAction(.select) }) {
-                        ZStack {
-                            Circle()
-                                .fill(isSelected ? workoutTypeColor : .white.opacity(0.2))
-                                .frame(width: 24, height: 24)
-                            
-                            if isSelected {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.black)
+                    if allowMultipleSelection {
+                        Button(action: { onAction(.select) }) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(isSelected ? workoutTypeColor : .white.opacity(0.2))
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(isSelected ? .clear : .white.opacity(0.4), lineWidth: 2)
+                                    )
+                                
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.black)
+                                }
                             }
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+                    } else {
+                        Button(action: { onAction(.select) }) {
+                            ZStack {
+                                Circle()
+                                    .fill(isSelected ? workoutTypeColor : .white.opacity(0.2))
+                                    .frame(width: 24, height: 24)
+                                
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.black)
+                                }
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 
-                // Exercise info
                 if let sets = exercise.sets, let reps = exercise.reps {
                     Text("\(sets) sets • \(reps) reps")
                         .font(.system(size: 14, weight: .semibold))
@@ -714,7 +857,6 @@ struct ExerciseCard: View {
                         .foregroundColor(workoutTypeColor)
                 }
                 
-                // Muscle groups
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(Array(exercise.targetMuscleGroups.prefix(3)), id: \.self) { muscle in
@@ -732,7 +874,6 @@ struct ExerciseCard: View {
                 }
             }
             
-            // Info button
             Button(action: { onAction(.tap) }) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 20, weight: .medium))
@@ -752,7 +893,7 @@ struct ExerciseCard: View {
                         )
                 )
         )
-        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .scaleEffect(isPressed ? 0.98 : (isSelected ? 1.02 : 1.0))
         .opacity(showCard ? 1 : 0)
         .offset(y: showCard ? 0 : 20)
         .onAppear {
@@ -761,7 +902,6 @@ struct ExerciseCard: View {
             }
         }
         .onLongPressGesture(minimumDuration: 0.0) {
-            // This won't execute, but the gesture recognizes the press
         } onPressingChanged: { pressing in
             withAnimation(.easeInOut(duration: 0.1)) {
                 isPressed = pressing
@@ -815,26 +955,22 @@ struct ExerciseCardSkeleton: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Thumbnail skeleton
             RoundedRectangle(cornerRadius: 12)
                 .fill(.ultraThinMaterial)
                 .frame(width: 80, height: 80)
                 .opacity(isAnimating ? 0.5 : 1.0)
             
             VStack(alignment: .leading, spacing: 8) {
-                // Title skeleton
                 RoundedRectangle(cornerRadius: 4)
                     .fill(.ultraThinMaterial)
                     .frame(height: 20)
                     .opacity(isAnimating ? 0.5 : 1.0)
                 
-                // Subtitle skeleton
                 RoundedRectangle(cornerRadius: 4)
                     .fill(.ultraThinMaterial)
                     .frame(width: 120, height: 14)
                     .opacity(isAnimating ? 0.5 : 1.0)
                 
-                // Tags skeleton
                 HStack(spacing: 8) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 12)
@@ -846,7 +982,6 @@ struct ExerciseCardSkeleton: View {
                 }
             }
             
-            // Info button skeleton
             Circle()
                 .fill(.ultraThinMaterial)
                 .frame(width: 24, height: 24)
@@ -873,7 +1008,6 @@ struct EmptyExerciseState: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Empty state icon
             ZStack {
                 Circle()
                     .fill(Color(hex: workoutType.primaryColor).opacity(0.1))
@@ -931,7 +1065,6 @@ struct ErrorStateView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Error icon
             ZStack {
                 Circle()
                     .fill(Color.red.opacity(0.1))
@@ -956,7 +1089,6 @@ struct ErrorStateView: View {
                     .padding(.horizontal, 32)
             }
             
-            // Retry button
             Button(action: {
                 withAnimation(.spring(response: 0.3)) {
                     showRetryAnimation = true

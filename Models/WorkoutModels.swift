@@ -3,6 +3,323 @@ import FirebaseFirestore
 
 // MARK: - Enhanced Workout Models for Production
 
+/// Workout template for creating standardized workouts
+struct WorkoutTemplate: Identifiable, Codable {
+    @DocumentID var id: String?
+    let name: String
+    let description: String?
+    let workoutType: WorkoutType
+    let difficulty: DifficultyLevel
+    let estimatedDuration: TimeInterval
+    let estimatedCalories: Int
+    let targetMuscleGroups: [MuscleGroup]
+    let exercises: [WorkoutExercise]
+    let imageURL: String?
+    let videoPreviewURL: String?
+    let isActive: Bool
+    let priority: Int // For ordering in lists
+    let tags: [String]
+    let searchKeywords: [String]
+    let createdAt: Date
+    let updatedAt: Date
+    
+    // Computed properties for UI
+    var safeId: String {
+        return id ?? UUID().uuidString
+    }
+    
+    var formattedDuration: String {
+        let hours = Int(estimatedDuration / 3600)
+        let minutes = Int((estimatedDuration.truncatingRemainder(dividingBy: 3600)) / 60)
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes) min"
+        }
+    }
+    
+    var exerciseCount: String {
+        let count = exercises.count
+        return "\(count) exercise\(count == 1 ? "" : "s")"
+    }
+    
+    init(
+        name: String,
+        description: String? = nil,
+        workoutType: WorkoutType,
+        difficulty: DifficultyLevel,
+        estimatedDuration: TimeInterval,
+        estimatedCalories: Int,
+        targetMuscleGroups: [MuscleGroup],
+        exercises: [WorkoutExercise],
+        imageURL: String? = nil,
+        videoPreviewURL: String? = nil,
+        isActive: Bool = true,
+        priority: Int = 0,
+        tags: [String] = [],
+        searchKeywords: [String] = []
+    ) {
+        self.id = UUID().uuidString
+        self.name = name
+        self.description = description
+        self.workoutType = workoutType
+        self.difficulty = difficulty
+        self.estimatedDuration = estimatedDuration
+        self.estimatedCalories = estimatedCalories
+        self.targetMuscleGroups = targetMuscleGroups
+        self.exercises = exercises
+        self.imageURL = imageURL
+        self.videoPreviewURL = videoPreviewURL
+        self.isActive = isActive
+        self.priority = priority
+        self.tags = tags
+        self.searchKeywords = searchKeywords
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+    
+    // Custom decoding for Firebase robustness
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if let decodedId = try container.decodeIfPresent(String.self, forKey: .id), !decodedId.isEmpty {
+            self.id = decodedId
+        } else {
+            self.id = UUID().uuidString
+        }
+        
+        self.name = (try? container.decode(String.self, forKey: .name)) ?? "Unknown Workout"
+        self.description = try? container.decodeIfPresent(String.self, forKey: .description)
+        self.workoutType = (try? container.decode(WorkoutType.self, forKey: .workoutType)) ?? .cardio
+        self.difficulty = (try? container.decode(DifficultyLevel.self, forKey: .difficulty)) ?? .beginner
+        self.estimatedDuration = (try? container.decode(TimeInterval.self, forKey: .estimatedDuration)) ?? 1800
+        self.estimatedCalories = (try? container.decode(Int.self, forKey: .estimatedCalories)) ?? 200
+        self.targetMuscleGroups = (try? container.decode([MuscleGroup].self, forKey: .targetMuscleGroups)) ?? []
+        self.exercises = (try? container.decode([WorkoutExercise].self, forKey: .exercises)) ?? []
+        self.imageURL = try? container.decodeIfPresent(String.self, forKey: .imageURL)
+        self.videoPreviewURL = try? container.decodeIfPresent(String.self, forKey: .videoPreviewURL)
+        self.isActive = (try? container.decode(Bool.self, forKey: .isActive)) ?? true
+        self.priority = (try? container.decode(Int.self, forKey: .priority)) ?? 0
+        self.tags = (try? container.decode([String].self, forKey: .tags)) ?? []
+        self.searchKeywords = (try? container.decode([String].self, forKey: .searchKeywords)) ?? []
+        self.createdAt = (try? container.decode(Date.self, forKey: .createdAt)) ?? Date()
+        self.updatedAt = (try? container.decode(Date.self, forKey: .updatedAt)) ?? Date()
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case workoutType
+        case difficulty
+        case estimatedDuration
+        case estimatedCalories
+        case targetMuscleGroups
+        case exercises
+        case imageURL
+        case videoPreviewURL
+        case isActive
+        case priority
+        case tags
+        case searchKeywords
+        case createdAt
+        case updatedAt
+    }
+}
+
+/// Workout completion data for tracking user's workout progress
+struct WorkoutCompletionData: Codable {
+    var workoutId: String?
+    var userId: String?
+    var workoutName: String = ""
+    var workoutType: WorkoutType = .cardio
+    var startTime: Date = Date()
+    var endTime: Date?
+    var totalDuration: TimeInterval = 0
+    var completedExercises: [CompletedExercise] = []
+    var totalCaloriesBurned: Int = 0
+    var isFullyCompleted: Bool = false
+    var userRating: Int?
+    var actualDuration: TimeInterval = 0
+    var actualCalories: Int = 0
+    var completedAt: Date?
+    
+    var completionPercentage: Double {
+        return isFullyCompleted ? 1.0 : 0.5
+    }
+    
+    // Default initializer
+    init() {}
+    
+    // Custom initializers for different use cases
+    init(
+        workoutId: String?,
+        workoutName: String,
+        workoutType: WorkoutType,
+        startTime: Date,
+        endTime: Date? = nil,
+        totalDuration: TimeInterval = 0,
+        totalCaloriesBurned: Int = 0,
+        completedExercises: [CompletedExercise] = [],
+        isFullyCompleted: Bool = false,
+        userRating: Int? = nil
+    ) {
+        self.workoutId = workoutId
+        self.workoutName = workoutName
+        self.workoutType = workoutType
+        self.startTime = startTime
+        self.endTime = endTime
+        self.totalDuration = totalDuration
+        self.totalCaloriesBurned = totalCaloriesBurned
+        self.completedExercises = completedExercises
+        self.isFullyCompleted = isFullyCompleted
+        self.userRating = userRating
+        self.actualDuration = totalDuration
+        self.actualCalories = totalCaloriesBurned
+        self.completedAt = endTime
+    }
+    
+    // Initializer for offline completion
+    init(
+        workoutId: String?,
+        userId: String,
+        actualDuration: TimeInterval,
+        actualCalories: Int,
+        rating: Int?,
+        completedAt: Date
+    ) {
+        self.workoutId = workoutId
+        self.userId = userId
+        self.actualDuration = actualDuration
+        self.totalDuration = actualDuration
+        self.actualCalories = actualCalories
+        self.totalCaloriesBurned = actualCalories
+        self.userRating = rating
+        self.completedAt = completedAt
+        self.endTime = completedAt
+        self.isFullyCompleted = true
+    }
+    
+    // Manual Codable implementation to handle UUID field properly
+    enum CodingKeys: String, CodingKey {
+        case workoutId
+        case userId
+        case workoutName
+        case workoutType
+        case startTime
+        case endTime
+        case totalDuration
+        case completedExercises
+        case totalCaloriesBurned
+        case isFullyCompleted
+        case userRating
+        case actualDuration
+        case actualCalories
+        case completedAt
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        workoutId = try? container.decodeIfPresent(String.self, forKey: .workoutId)
+        userId = try? container.decodeIfPresent(String.self, forKey: .userId)
+        workoutName = (try? container.decode(String.self, forKey: .workoutName)) ?? ""
+        workoutType = (try? container.decode(WorkoutType.self, forKey: .workoutType)) ?? .cardio
+        startTime = (try? container.decode(Date.self, forKey: .startTime)) ?? Date()
+        endTime = try? container.decodeIfPresent(Date.self, forKey: .endTime)
+        totalDuration = (try? container.decode(TimeInterval.self, forKey: .totalDuration)) ?? 0
+        completedExercises = (try? container.decode([CompletedExercise].self, forKey: .completedExercises)) ?? []
+        totalCaloriesBurned = (try? container.decode(Int.self, forKey: .totalCaloriesBurned)) ?? 0
+        isFullyCompleted = (try? container.decode(Bool.self, forKey: .isFullyCompleted)) ?? false
+        userRating = try? container.decodeIfPresent(Int.self, forKey: .userRating)
+        actualDuration = (try? container.decode(TimeInterval.self, forKey: .actualDuration)) ?? 0
+        actualCalories = (try? container.decode(Int.self, forKey: .actualCalories)) ?? 0
+        completedAt = try? container.decodeIfPresent(Date.self, forKey: .completedAt)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encodeIfPresent(workoutId, forKey: .workoutId)
+        try container.encodeIfPresent(userId, forKey: .userId)
+        try container.encode(workoutName, forKey: .workoutName)
+        try container.encode(workoutType, forKey: .workoutType)
+        try container.encode(startTime, forKey: .startTime)
+        try container.encodeIfPresent(endTime, forKey: .endTime)
+        try container.encode(totalDuration, forKey: .totalDuration)
+        try container.encode(completedExercises, forKey: .completedExercises)
+        try container.encode(totalCaloriesBurned, forKey: .totalCaloriesBurned)
+        try container.encode(isFullyCompleted, forKey: .isFullyCompleted)
+        try container.encodeIfPresent(userRating, forKey: .userRating)
+        try container.encode(actualDuration, forKey: .actualDuration)
+        try container.encode(actualCalories, forKey: .actualCalories)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
+    }
+}
+
+/// Completed exercise data for workout completion tracking
+struct CompletedExercise: Codable, Identifiable {
+    let id: String // Use String instead of UUID for Codable compatibility
+    let exercise: WorkoutExercise
+    let setsCompleted: Int
+    let repsPerSet: [Int]
+    let duration: TimeInterval
+    let caloriesBurned: Int
+    let completedAt: Date
+    
+    init(
+        exercise: WorkoutExercise,
+        setsCompleted: Int,
+        repsPerSet: [Int],
+        duration: TimeInterval,
+        caloriesBurned: Int
+    ) {
+        self.id = UUID().uuidString // Generate string ID
+        self.exercise = exercise
+        self.setsCompleted = setsCompleted
+        self.repsPerSet = repsPerSet
+        self.duration = duration
+        self.caloriesBurned = caloriesBurned
+        self.completedAt = Date()
+    }
+    
+    // Manual Codable implementation for UUID compatibility
+    enum CodingKeys: String, CodingKey {
+        case id
+        case exercise
+        case setsCompleted
+        case repsPerSet
+        case duration
+        case caloriesBurned
+        case completedAt
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        exercise = try container.decode(WorkoutExercise.self, forKey: .exercise)
+        setsCompleted = (try? container.decode(Int.self, forKey: .setsCompleted)) ?? 0
+        repsPerSet = (try? container.decode([Int].self, forKey: .repsPerSet)) ?? []
+        duration = (try? container.decode(TimeInterval.self, forKey: .duration)) ?? 0
+        caloriesBurned = (try? container.decode(Int.self, forKey: .caloriesBurned)) ?? 0
+        completedAt = (try? container.decode(Date.self, forKey: .completedAt)) ?? Date()
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(exercise, forKey: .exercise)
+        try container.encode(setsCompleted, forKey: .setsCompleted)
+        try container.encode(repsPerSet, forKey: .repsPerSet)
+        try container.encode(duration, forKey: .duration)
+        try container.encode(caloriesBurned, forKey: .caloriesBurned)
+        try container.encode(completedAt, forKey: .completedAt)
+    }
+}
+
 /// Complete workout session data
 struct WorkoutSession: Identifiable, Codable {
     @DocumentID var id: String?
@@ -280,8 +597,8 @@ enum MuscleGroup: String, Codable, CaseIterable {
 }
 
 /// Individual exercise within a workout
-struct WorkoutExercise: Identifiable, Codable {
-    let id = UUID()
+struct WorkoutExercise: Identifiable, Codable, Hashable {
+    let id: String // Use String instead of UUID for Codable compatibility
     let name: String
     let description: String?
     let exerciseType: ExerciseType 
@@ -296,7 +613,26 @@ struct WorkoutExercise: Identifiable, Codable {
     let imageURL: String?
     let videoURL: String?
     let caloriesPerMinute: Double?
-    let exerciseIcon: String  
+    let exerciseIcon: String
+    
+    // MARK: - Hashable Implementation
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(name)
+        hasher.combine(exerciseType)
+        hasher.combine(sets)
+        hasher.combine(reps)
+        hasher.combine(duration)
+    }
+    
+    static func == (lhs: WorkoutExercise, rhs: WorkoutExercise) -> Bool {
+        return lhs.id == rhs.id &&
+               lhs.name == rhs.name &&
+               lhs.exerciseType == rhs.exerciseType &&
+               lhs.sets == rhs.sets &&
+               lhs.reps == rhs.reps &&
+               lhs.duration == rhs.duration
+    }
     
     // Computed properties for UI
     var formattedDuration: String? {
@@ -342,6 +678,7 @@ struct WorkoutExercise: Identifiable, Codable {
         caloriesPerMinute: Double? = nil,
         exerciseIcon: String? = nil
     ) {
+        self.id = UUID().uuidString // Generate string ID
         self.name = name
         self.description = description
         self.exerciseType = exerciseType
@@ -357,6 +694,68 @@ struct WorkoutExercise: Identifiable, Codable {
         self.videoURL = videoURL
         self.caloriesPerMinute = caloriesPerMinute
         self.exerciseIcon = exerciseIcon ?? exerciseType.defaultIcon
+    }
+    
+    // Manual Codable implementation for UUID compatibility
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case exerciseType
+        case targetMuscleGroups
+        case sets
+        case reps
+        case duration
+        case restTime
+        case weight
+        case distance
+        case instructions
+        case imageURL
+        case videoURL
+        case caloriesPerMinute
+        case exerciseIcon
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        name = (try? container.decode(String.self, forKey: .name)) ?? "Unknown Exercise"
+        description = try? container.decodeIfPresent(String.self, forKey: .description)
+        exerciseType = (try? container.decode(ExerciseType.self, forKey: .exerciseType)) ?? .cardio
+        targetMuscleGroups = (try? container.decode([MuscleGroup].self, forKey: .targetMuscleGroups)) ?? []
+        sets = try? container.decodeIfPresent(Int.self, forKey: .sets)
+        reps = try? container.decodeIfPresent(Int.self, forKey: .reps)
+        duration = try? container.decodeIfPresent(TimeInterval.self, forKey: .duration)
+        restTime = try? container.decodeIfPresent(TimeInterval.self, forKey: .restTime)
+        weight = try? container.decodeIfPresent(Double.self, forKey: .weight)
+        distance = try? container.decodeIfPresent(Double.self, forKey: .distance)
+        instructions = (try? container.decode([String].self, forKey: .instructions)) ?? []
+        imageURL = try? container.decodeIfPresent(String.self, forKey: .imageURL)
+        videoURL = try? container.decodeIfPresent(String.self, forKey: .videoURL)
+        caloriesPerMinute = try? container.decodeIfPresent(Double.self, forKey: .caloriesPerMinute)
+        exerciseIcon = (try? container.decode(String.self, forKey: .exerciseIcon)) ?? exerciseType.defaultIcon
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encode(exerciseType, forKey: .exerciseType)
+        try container.encode(targetMuscleGroups, forKey: .targetMuscleGroups)
+        try container.encodeIfPresent(sets, forKey: .sets)
+        try container.encodeIfPresent(reps, forKey: .reps)
+        try container.encodeIfPresent(duration, forKey: .duration)
+        try container.encodeIfPresent(restTime, forKey: .restTime)
+        try container.encodeIfPresent(weight, forKey: .weight)
+        try container.encodeIfPresent(distance, forKey: .distance)
+        try container.encode(instructions, forKey: .instructions)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encodeIfPresent(videoURL, forKey: .videoURL)
+        try container.encodeIfPresent(caloriesPerMinute, forKey: .caloriesPerMinute)
+        try container.encode(exerciseIcon, forKey: .exerciseIcon)
     }
 }
 
@@ -465,13 +864,30 @@ struct WorkoutStats: Codable {
 
 /// Personal records for motivation
 struct PersonalRecord: Identifiable, Codable {
-    let id = UUID()
+    let id: String // Use String instead of UUID for Codable compatibility
     let type: RecordType
     let value: Double
     let unit: String
     let workoutType: WorkoutType
     let achievedAt: Date
     let exerciseName: String?
+    
+    init(
+        type: RecordType,
+        value: Double,
+        unit: String,
+        workoutType: WorkoutType,
+        achievedAt: Date,
+        exerciseName: String? = nil
+    ) {
+        self.id = UUID().uuidString
+        self.type = type
+        self.value = value
+        self.unit = unit
+        self.workoutType = workoutType
+        self.achievedAt = achievedAt
+        self.exerciseName = exerciseName
+    }
     
     enum RecordType: String, Codable {
         case longestWorkout = "longest_workout"
@@ -502,15 +918,63 @@ struct PersonalRecord: Identifiable, Codable {
             return "\(Int(value)) days"
         }
     }
+    
+    // Manual Codable implementation
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case value
+        case unit
+        case workoutType
+        case achievedAt
+        case exerciseName
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        type = (try? container.decode(RecordType.self, forKey: .type)) ?? .longestWorkout
+        value = (try? container.decode(Double.self, forKey: .value)) ?? 0
+        unit = (try? container.decode(String.self, forKey: .unit)) ?? ""
+        workoutType = (try? container.decode(WorkoutType.self, forKey: .workoutType)) ?? .cardio
+        achievedAt = (try? container.decode(Date.self, forKey: .achievedAt)) ?? Date()
+        exerciseName = try? container.decodeIfPresent(String.self, forKey: .exerciseName)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(value, forKey: .value)
+        try container.encode(unit, forKey: .unit)
+        try container.encode(workoutType, forKey: .workoutType)
+        try container.encode(achievedAt, forKey: .achievedAt)
+        try container.encodeIfPresent(exerciseName, forKey: .exerciseName)
+    }
 }
 
 /// Daily workout recommendations
 struct WorkoutRecommendation: Identifiable, Codable {
-    let id = UUID()
+    let id: String // Use String instead of UUID for Codable compatibility
     let workoutSession: WorkoutSession
     let reason: RecommendationReason
     let priority: Int // 1-10, higher = more important
     let validUntil: Date
+    
+    init(
+        workoutSession: WorkoutSession,
+        reason: RecommendationReason,
+        priority: Int,
+        validUntil: Date
+    ) {
+        self.id = UUID().uuidString
+        self.workoutSession = workoutSession
+        self.reason = reason
+        self.priority = priority
+        self.validUntil = validUntil
+    }
     
     enum RecommendationReason: String, Codable {
         case dailyGoal = "daily_goal"
@@ -544,6 +1008,35 @@ struct WorkoutRecommendation: Identifiable, Codable {
             case .completePreviousSession: return "clock.fill"
             }
         }
+    }
+    
+    // Manual Codable implementation
+    enum CodingKeys: String, CodingKey {
+        case id
+        case workoutSession
+        case reason
+        case priority
+        case validUntil
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        workoutSession = try container.decode(WorkoutSession.self, forKey: .workoutSession)
+        reason = (try? container.decode(RecommendationReason.self, forKey: .reason)) ?? .dailyGoal
+        priority = (try? container.decode(Int.self, forKey: .priority)) ?? 5
+        validUntil = (try? container.decode(Date.self, forKey: .validUntil)) ?? Date()
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(workoutSession, forKey: .workoutSession)
+        try container.encode(reason, forKey: .reason)
+        try container.encode(priority, forKey: .priority)
+        try container.encode(validUntil, forKey: .validUntil)
     }
 }
 
@@ -593,5 +1086,31 @@ extension WorkoutSession {
             imageURL: nil,
             videoPreviewURL: nil
         ),
+    ]
+}
+
+extension WorkoutTemplate {
+    static let mockData: [WorkoutTemplate] = [
+        WorkoutTemplate(
+            name: "Quick Morning Yoga",
+            description: "Start your day with gentle movements and mindfulness",
+            workoutType: .yoga,
+            difficulty: .beginner,
+            estimatedDuration: 900, // 15 minutes
+            estimatedCalories: 80,
+            targetMuscleGroups: [.fullBody],
+            exercises: [
+                WorkoutExercise(
+                    name: "Sun Salutation",
+                    description: "Classic yoga sequence",
+                    exerciseType: .flexibility,
+                    targetMuscleGroups: [.fullBody],
+                    sets: 3,
+                    instructions: ["Flow through the sequence", "Focus on breath", "Move slowly and mindfully"]
+                )
+            ],
+            tags: ["morning", "yoga", "beginner", "flexibility"],
+            searchKeywords: ["yoga", "morning", "stretch", "flexibility", "mindfulness"]
+        )
     ]
 }

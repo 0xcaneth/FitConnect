@@ -199,7 +199,34 @@ struct WorkoutDetailView: View {
     private var startButton: some View {
         Button(action: {
             print("[WorkoutDetail] 🚀 Starting workout execution")
-            showWorkoutExecution = true
+            
+            // CRITICAL FIX: Save normal workout to Firebase first, then start execution
+            Task {
+                let workoutService = WorkoutService.shared
+                let result = await workoutService.startWorkout(workout)
+                
+                switch result {
+                case .success(let workoutId):
+                    print("[WorkoutDetail] 🔥 Normal workout saved to Firebase with ID: \(workoutId)")
+                    
+                    await MainActor.run {
+                        // Update workout with Firebase ID for execution
+                        var savedWorkout = workout
+                        savedWorkout.id = workoutId
+                        
+                        // Now start execution with properly saved workout
+                        showWorkoutExecution = true
+                    }
+                    
+                case .failure(let error):
+                    print("[WorkoutDetail] ❌ Failed to save normal workout: \(error)")
+                    
+                    await MainActor.run {
+                        // Still show execution as fallback
+                        showWorkoutExecution = true
+                    }
+                }
+            }
         }) {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill")

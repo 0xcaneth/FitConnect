@@ -157,9 +157,16 @@ struct ExerciseDetailView: View {
         }
         
         Task {
-            let url = await ExerciseVideoService.shared.fetchExerciseVideo(for: exercise.name)
-            await MainActor.run {
-                self.exerciseVideoURL = url
+            do {
+                let url = try await ExerciseVideoService.shared.fetchExerciseVideo(for: exercise.name)
+                await MainActor.run {
+                    self.exerciseVideoURL = url
+                }
+            } catch {
+                print("[ExerciseDetail] Video loading failed for \(exercise.name): \(error)")
+                await MainActor.run {
+                    self.exerciseVideoURL = nil
+                }
             }
         }
     }

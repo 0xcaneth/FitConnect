@@ -1,8 +1,9 @@
 import SwiftUI
 import AVFoundation
+import Combine
 
-/// Nike-level interactive workout execution experience
-/// Real-time workout session with video guidance, timers, and progress tracking
+// Nike-level interactive workout execution experience
+// Real-time workout session with video guidance, timers, and progress tracking
 @available(iOS 16.0, *)
 struct WorkoutExecutionView: View {
     let workout: WorkoutSession
@@ -21,10 +22,7 @@ struct WorkoutExecutionView: View {
     
     var body: some View {
         ZStack {
-            // Background
-            Color.black.ignoresSafeArea()
-            
-            // Main content
+            // Main content based on state
             if workoutEngine.isCompleted {
                 WorkoutCompletionView(
                     completionData: workoutEngine.completionData,
@@ -51,23 +49,18 @@ struct WorkoutExecutionView: View {
                     }
                 )
             } else {
-                ActiveWorkoutView(
-                    currentExercise: workoutEngine.currentExercise,
-                    currentSet: workoutEngine.currentSet,
-                    totalSets: workoutEngine.totalSets,
-                    timeRemaining: workoutEngine.exerciseTimeRemaining,
-                    repsCompleted: workoutEngine.repsCompleted,
-                    targetReps: workoutEngine.targetReps,
-                    exerciseIndex: workoutEngine.currentExerciseIndex,
-                    totalExercises: workout.exercises.count,
-                    motivationMessage: motivationEngine.getExerciseMotivation(
-                        exercise: workoutEngine.currentExercise
-                    ),
+                // MAIN WORKOUT EXECUTION - FINAL FIX
+                FitConnectWorkoutExecutionView(
+                    workoutEngine: workoutEngine,
+                    totalExercises: workout.exercises.count, // FIXED: Pass total exercises count
                     onSetComplete: {
                         handleSetCompletion()
                     },
                     onRepCompleted: {
                         workoutEngine.incrementRep()
+                    },
+                    onSkipCurrentSet: {
+                        workoutEngine.skipCurrentSet()
                     },
                     onNextExercise: {
                         handleExerciseCompletion()
@@ -77,14 +70,14 @@ struct WorkoutExecutionView: View {
                     },
                     onResumeWorkout: {
                         workoutEngine.resumeWorkout()
+                    },
+                    onExitWorkout: {
+                        workoutEngine.pauseWorkout()
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showExitConfirmation = true
+                        }
                     }
                 )
-            }
-            
-            // Top overlay with progress and exit
-            VStack {
-                topControlsOverlay
-                Spacer()
             }
             
             // Exit confirmation dialog
@@ -123,60 +116,6 @@ struct WorkoutExecutionView: View {
                 }
             }
         }
-    }
-    
-    // MARK: - Top Controls Overlay
-    
-    @ViewBuilder
-    private var topControlsOverlay: some View {
-        HStack {
-            // Exit button
-            Button(action: {
-                workoutEngine.pauseWorkout()
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    showExitConfirmation = true
-                }
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-            }
-            
-            Spacer()
-            
-            // Workout progress
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("Exercise \(workoutEngine.currentExerciseIndex + 1) of \(workout.exercises.count)")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
-                
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white.opacity(0.3))
-                            .frame(height: 4)
-                        
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.white)
-                            .frame(
-                                width: geometry.size.width * workoutEngine.overallProgress,
-                                height: 4
-                            )
-                            .animation(.easeOut(duration: 0.3), value: workoutEngine.overallProgress)
-                    }
-                }
-                .frame(width: 120, height: 4)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 60) // Account for status bar
     }
     
     // MARK: - Helper Methods
@@ -227,700 +166,7 @@ struct WorkoutExecutionView: View {
     }
 }
 
-// MARK: - Active Workout View
-
-@available(iOS 16.0, *)
-struct ActiveWorkoutView: View {
-    let currentExercise: WorkoutExercise?
-    let currentSet: Int
-    let totalSets: Int
-    let timeRemaining: TimeInterval
-    let repsCompleted: Int
-    let targetReps: Int
-    let exerciseIndex: Int
-    let totalExercises: Int
-    let motivationMessage: String
-    
-    let onSetComplete: () -> Void
-    let onRepCompleted: () -> Void
-    let onNextExercise: () -> Void
-    let onPauseWorkout: () -> Void
-    let onResumeWorkout: () -> Void
-    
-    @State private var isPaused = false
-    @State private var showInstructions = false
-    @State private var animateReps = false
-    
-    var body: some View {
-        ZStack {
-            // Full-screen auto-looping video background
-            if let exercise = currentExercise {
-                AutoLoopingVideoPlayerView(
-                    exercise: exercise,
-                    isPlaying: !isPaused
-                )
-                .ignoresSafeArea(.all)
-                .clipShape(Rectangle())
-            }
-            
-            // Clean gradient overlay for readability
-            LinearGradient(
-                colors: [
-                    .clear,
-                    .clear,
-                    .black.opacity(0.4),
-                    .black.opacity(0.85)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(.all)
-            
-            // Main content with Nike-level design
-            VStack(spacing: 0) {
-                Spacer()
-                
-                // Bottom content panel - Crystal clear design
-                VStack(spacing: 32) {
-                    // Exercise name - Nike style typography
-                    VStack(spacing: 16) {
-                        Text(currentExercise?.name ?? "High Knees")
-                            .font(.system(size: 36, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                        
-                        // Clean motivation message
-                        Text(motivationMessage.isEmpty ? "Keep that energy flowing! " : motivationMessage)
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.95))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 1)
-                    }
-                    
-                    // Instructions toggle - Minimalist design
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            showInstructions.toggle()
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: showInstructions ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 14, weight: .bold))
-                            
-                            Text("Instructions")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .fill(.black.opacity(0.3))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(.white.opacity(0.2), lineWidth: 1)
-                                )
-                        )
-                    }
-                    
-                    // Clean instructions panel
-                    if showInstructions, let instructions = currentExercise?.instructions {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(Array(instructions.enumerated()), id: \.offset) { index, instruction in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text("\(index + 1)")
-                                        .font(.system(size: 16, weight: .black, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .frame(width: 24, height: 24)
-                                        .background(
-                                            Circle()
-                                                .fill(.white.opacity(0.2))
-                                        )
-                                    
-                                    Text(instruction)
-                                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.95))
-                                        .multilineTextAlignment(.leading)
-                                    
-                                    Spacer()
-                                }
-                            }
-                        }
-                        .padding(24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(.black.opacity(0.6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(.white.opacity(0.15), lineWidth: 1)
-                                )
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                    }
-                    
-                    // Set/Rep counter or timer - Nike-inspired design
-                    if let exercise = currentExercise {
-                        if exercise.isTimeBasedExercise {
-                            NikeStyleTimeCounter(
-                                timeRemaining: timeRemaining,
-                                onComplete: onNextExercise
-                            )
-                        } else {
-                            NikeStyleSetsRepsCounter(
-                                currentSet: currentSet,
-                                totalSets: totalSets,
-                                repsCompleted: repsCompleted,
-                                targetReps: targetReps,
-                                onRepCompleted: onRepCompleted,
-                                onSetComplete: onSetComplete
-                            )
-                        }
-                    }
-                    
-                    // Clean control buttons - Nike style
-                    HStack(spacing: 24) {
-                        // Pause/Resume button
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isPaused.toggle()
-                            }
-                            
-                            if isPaused {
-                                onPauseWorkout()
-                            } else {
-                                onResumeWorkout()
-                            }
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(.black.opacity(0.8))
-                                    .frame(width: 70, height: 70)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(.white.opacity(0.3), lineWidth: 2)
-                                    )
-                                
-                                Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-                    }
-                }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 50)
-            }
-        }
-    }
-}
-
-// MARK: - Nike-Style Sets/Reps Counter
-
-struct NikeStyleSetsRepsCounter: View {
-    let currentSet: Int
-    let totalSets: Int
-    let repsCompleted: Int
-    let targetReps: Int
-    let onRepCompleted: () -> Void
-    let onSetComplete: () -> Void
-    
-    @State private var animateReps = false
-    
-    var body: some View {
-        VStack(spacing: 28) {
-            // Set progress - Clean Nike style
-            HStack(alignment: .bottom, spacing: 16) {
-                VStack(spacing: 8) {
-                    Text("SET")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                    
-                    Text("\(currentSet)")
-                        .font(.system(size: 42, weight: .black, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                
-                Text("OF")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.bottom, 8)
-                
-                VStack(spacing: 8) {
-                    Text("TOTAL")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                    
-                    Text("\(totalSets)")
-                        .font(.system(size: 42, weight: .black, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-            
-            // Rep counter - Clean and bold
-            VStack(spacing: 20) {
-                // Large rep display
-                HStack(alignment: .bottom, spacing: 12) {
-                    Text("\(repsCompleted)")
-                        .font(.system(size: 72, weight: .black, design: .rounded))
-                        .foregroundColor(.white)
-                        .scaleEffect(animateReps ? 1.05 : 1.0)
-                        .onChange(of: repsCompleted) { _ in
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                                animateReps = true
-                            }
-                            
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                animateReps = false
-                            }
-                        }
-                    
-                    VStack(spacing: 4) {
-                        Text("OF")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.6))
-                            .tracking(1)
-                        
-                        Text("\(targetReps)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding(.bottom, 8)
-                }
-                
-                Text("REPS")
-                    .font(.system(size: 16, weight: .black, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
-                    .tracking(2)
-                
-                // Clean progress indicator
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(.white.opacity(0.2))
-                            .frame(height: 6)
-                        
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(.white)
-                            .frame(
-                                width: geometry.size.width * min(1.0, Double(repsCompleted) / Double(targetReps)),
-                                height: 6
-                            )
-                            .animation(.easeOut(duration: 0.3), value: repsCompleted)
-                    }
-                }
-                .frame(height: 6)
-                .frame(maxWidth: 240)
-            }
-            
-            // Action buttons - Nike inspired
-            VStack(spacing: 16) {
-                // +1 Rep button - Primary action
-                Button(action: {
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                    impactFeedback.impactOccurred()
-                    onRepCompleted()
-                }) {
-                    Text("+1 REP")
-                        .font(.system(size: 18, weight: .black, design: .rounded))
-                        .foregroundColor(.black)
-                        .tracking(1)
-                        .frame(width: 200, height: 56)
-                        .background(
-                            Capsule()
-                                .fill(.white)
-                        )
-                        .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
-                }
-                .disabled(repsCompleted >= targetReps)
-                .opacity(repsCompleted >= targetReps ? 0.5 : 1.0)
-                
-                // Complete Set button - Success action
-                if repsCompleted >= targetReps {
-                    Button(action: {
-                        let successFeedback = UINotificationFeedbackGenerator()
-                        successFeedback.notificationOccurred(.success)
-                        onSetComplete()
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20, weight: .bold))
-                            
-                            Text("COMPLETE SET")
-                                .font(.system(size: 18, weight: .black, design: .rounded))
-                                .tracking(1)
-                        }
-                        .foregroundColor(.black)
-                        .frame(width: 200, height: 56)
-                        .background(
-                            Capsule()
-                                .fill(Color(red: 0.0, green: 1.0, blue: 0.533333333333333))
-                        )
-                        .shadow(color: Color(red: 0.0, green: 1.0, blue: 0.533333333333333).opacity(0.4), radius: 8, x: 0, y: 4)
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-        }
-        .padding(28)
-        .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(.black.opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-    }
-}
-
-// MARK: - Nike-Style Time Counter
-
-struct NikeStyleTimeCounter: View {
-    let timeRemaining: TimeInterval
-    let onComplete: () -> Void
-    
-    @State private var animateTimer = false
-    
-    var formattedTime: String {
-        let minutes = Int(timeRemaining) / 60
-        let seconds = Int(timeRemaining) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-    
-    var body: some View {
-        VStack(spacing: 24) {
-            Text("TIME REMAINING")
-                .font(.system(size: 16, weight: .black, design: .rounded))
-                .foregroundColor(.white.opacity(0.7))
-                .tracking(2)
-            
-            ZStack {
-                // Background circle - Clean design
-                Circle()
-                    .stroke(.white.opacity(0.2), lineWidth: 8)
-                    .frame(width: 220, height: 220)
-                
-                // Progress circle - Nike style
-                Circle()
-                    .trim(from: 0.0, to: min(1.0, 1.0 - (timeRemaining / 60.0)))
-                    .stroke(.white, lineWidth: 8)
-                    .frame(width: 220, height: 220)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 1), value: timeRemaining)
-                
-                // Time display - Bold and clear
-                VStack(spacing: 8) {
-                    Text(formattedTime)
-                        .font(.system(size: 52, weight: .black, design: .rounded))
-                        .foregroundColor(.white)
-                        .scaleEffect(animateTimer ? 1.02 : 1.0)
-                    
-                    Text("REMAINING")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                        .tracking(1)
-                }
-            }
-            .onChange(of: Int(timeRemaining)) { _ in
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
-                    animateTimer = true
-                }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    animateTimer = false
-                }
-                
-                if timeRemaining <= 0 {
-                    onComplete()
-                }
-            }
-        }
-        .padding(28)
-        .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(.black.opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-    }
-}
-
-// MARK: - Auto-Looping Video Player
-
-struct AutoLoopingVideoPlayerView: View {
-    let exercise: WorkoutExercise
-    let isPlaying: Bool
-    
-    @StateObject private var videoManager = VideoLoopManager()
-    
-    var body: some View {
-        GeometryReader { geometry in
-            if let videoURL = exercise.videoURL, !videoURL.isEmpty {
-                EnhancedVideoPlayerView(
-                    url: videoURL,
-                    isPlaying: isPlaying,
-                    shouldLoop: true,
-                    exerciseDuration: exercise.duration ?? 30, // Exercise duration in seconds
-                    videoManager: videoManager
-                )
-                .aspectRatio(contentMode: .fill)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .clipped()
-                .overlay(
-                    // Subtle video overlay for better text readability
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .clear,
-                            .black.opacity(0.1),
-                            .black.opacity(0.3)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-            } else {
-                // Enhanced fallback demonstration
-                ExerciseDemonstrationView(exercise: exercise)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-            }
-        }
-        .onAppear {
-            if let videoURL = exercise.videoURL {
-                videoManager.setupVideo(url: videoURL, exerciseDuration: exercise.duration ?? 30)
-            }
-        }
-        .onDisappear {
-            videoManager.stopVideo()
-        }
-    }
-}
-
-// MARK: - Enhanced Video Loop Manager
-
-class VideoLoopManager: ObservableObject {
-    private var player: AVPlayer?
-    private var playerItem: AVPlayerItem?
-    private var timeObserver: Any?
-    private var exerciseDuration: TimeInterval = 30
-    private var videoDuration: TimeInterval = 0
-    private var loopTimer: Timer?
-    
-    func setupVideo(url: String, exerciseDuration: TimeInterval = 30) {
-        guard let videoURL = URL(string: url) else { return }
-        
-        self.exerciseDuration = exerciseDuration
-        playerItem = AVPlayerItem(url: videoURL)
-        player = AVPlayer(playerItem: playerItem)
-        
-        // Get video duration
-        playerItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak self] in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                let duration = self.playerItem?.asset.duration ?? CMTime.zero
-                self.videoDuration = CMTimeGetSeconds(duration)
-                self.setupIntelligentLooping()
-            }
-        }
-        
-        player?.play()
-    }
-    
-    private func setupIntelligentLooping() {
-        // INTELLIGENT AUTO-LOOP: Match exercise duration
-        if videoDuration > 0 && videoDuration < exerciseDuration {
-            // Video is shorter than exercise - loop multiple times
-            let loopsNeeded = Int(ceil(exerciseDuration / videoDuration))
-            print("[VideoManager] 🔄 Video (\(Int(videoDuration))s) will loop \(loopsNeeded) times for exercise (\(Int(exerciseDuration))s)")
-            
-            NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: playerItem,
-                queue: .main
-            ) { [weak self] _ in
-                self?.player?.seek(to: .zero)
-                self?.player?.play()
-            }
-        } else {
-            // Video is longer or equal - play once and loop if needed
-            NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: playerItem,
-                queue: .main
-            ) { [weak self] _ in
-                self?.player?.seek(to: .zero)
-                self?.player?.play()
-            }
-        }
-    }
-    
-    func play() {
-        player?.play()
-    }
-    
-    func pause() {
-        player?.pause()
-    }
-    
-    func stopVideo() {
-        player?.pause()
-        player = nil
-        playerItem = nil
-        loopTimer?.invalidate()
-        loopTimer = nil
-        
-        if let observer = timeObserver {
-            player?.removeTimeObserver(observer)
-            timeObserver = nil
-        }
-    }
-}
-
-// MARK: - Enhanced Video Player View
-
-struct EnhancedVideoPlayerView: UIViewRepresentable {
-    let url: String
-    let isPlaying: Bool
-    let shouldLoop: Bool
-    let exerciseDuration: TimeInterval
-    let videoManager: VideoLoopManager
-    
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        
-        guard let videoURL = URL(string: url) else { return view }
-        
-        let playerItem = AVPlayerItem(url: videoURL)
-        let player = AVPlayer(playerItem: playerItem)
-        let playerLayer = AVPlayerLayer(player: player)
-        
-        // Enhanced video display
-        playerLayer.frame = view.bounds
-        playerLayer.videoGravity = .resizeAspectFill
-        playerLayer.cornerRadius = 0 // Full screen
-        view.layer.addSublayer(playerLayer)
-        
-        // Setup intelligent looping
-        if shouldLoop {
-            NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: playerItem,
-                queue: .main
-            ) { _ in
-                player.seek(to: .zero)
-                if self.isPlaying {
-                    player.play()
-                }
-            }
-        }
-        
-        if isPlaying {
-            player.play()
-        }
-        
-        return view
-    }
-    
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // Auto-layout for full screen
-        if let playerLayer = uiView.layer.sublayers?.first as? AVPlayerLayer {
-            playerLayer.frame = uiView.bounds
-            
-            if isPlaying {
-                playerLayer.player?.play()
-            } else {
-                playerLayer.player?.pause()
-            }
-        }
-    }
-}
-
-// MARK: - Video Loop Manager
-
-class VideoLoopManagerOld: ObservableObject {
-    private var player: AVPlayer?
-    private var playerItem: AVPlayerItem?
-    private var timeObserver: Any?
-    
-    func setupVideo(url: String) {
-        guard let videoURL = URL(string: url) else { return }
-        
-        playerItem = AVPlayerItem(url: videoURL)
-        player = AVPlayer(playerItem: playerItem)
-        
-        // Setup seamless looping
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: playerItem,
-            queue: .main
-        ) { [weak self] _ in
-            self?.player?.seek(to: .zero)
-            self?.player?.play()
-        }
-        
-        player?.play()
-    }
-    
-    func play() {
-        player?.play()
-    }
-    
-    func pause() {
-        player?.pause()
-    }
-    
-    func stopVideo() {
-        player?.pause()
-        player = nil
-        playerItem = nil
-        
-        if let observer = timeObserver {
-            player?.removeTimeObserver(observer)
-            timeObserver = nil
-        }
-    }
-}
-
-// MARK: - Exercise Demonstration Fallback
-
-struct ExerciseDemonstrationView: View {
-    let exercise: WorkoutExercise
-    
-    var body: some View {
-        ZStack {
-            // High-quality gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 255/255, green: 107/255, blue: 107/255),
-                    Color(red: 78/255, green: 205/255, blue: 196/255),
-                    Color(red: 69/255, green: 183/255, blue: 209/255)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            // Exercise icon with animation
-            VStack(spacing: 20) {
-                Image(systemName: exercise.exerciseIcon ?? "figure.strengthtraining.traditional")
-                    .font(.system(size: 120, weight: .ultraLight))
-                    .foregroundColor(.white.opacity(0.9))
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                
-                Text("Follow the instructions")
-                    .font(.system(size: 20, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
-            }
-        }
-    }
-}
-
-// MARK: - Rest Period View
-
+// MARK: - Rest Period View Component
 @available(iOS 16.0, *)
 struct RestPeriodView: View {
     let timeRemaining: TimeInterval
@@ -938,33 +184,32 @@ struct RestPeriodView: View {
     
     var body: some View {
         ZStack {
-            // Rest background
+            // SOLID BACKGROUND
             LinearGradient(
                 colors: [
-                    Color(red: 0.10196078431372549, green: 0.1568627450980392, blue: 0.4980392156862745).opacity(0.8),
-                    Color(red: 0.06666666666666667, green: 0.23529411764705883, blue: 0.6274509803921569).opacity(0.9),
-                    .black
+                    Color(red: 0.05, green: 0.15, blue: 0.35),
+                    Color(red: 0.10, green: 0.20, blue: 0.45),
+                    Color(red: 0.15, green: 0.25, blue: 0.55)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
             
-            VStack(spacing: 40) {
+            VStack(spacing: 30) {
                 Spacer()
                 
                 // Rest indicator
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     ZStack {
                         Circle()
-                            .fill(.blue.opacity(0.2))
-                            .frame(width: 120, height: 120)
-                            .scaleEffect(pulseAnimation ? 1.2 : 1.0)
-                            .opacity(pulseAnimation ? 0.3 : 0.8)
+                            .fill(Color.white.opacity(0.1))
+                            .frame(width: 100, height: 100)
+                            .scaleEffect(pulseAnimation ? 1.1 : 1.0)
                         
                         Image(systemName: "pause.circle.fill")
-                            .font(.system(size: 60, weight: .semibold))
-                            .foregroundColor(.blue)
+                            .font(.system(size: 50, weight: .medium))
+                            .foregroundColor(.white)
                     }
                     .onAppear {
                         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
@@ -973,65 +218,69 @@ struct RestPeriodView: View {
                     }
                     
                     Text("REST TIME")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white.opacity(0.8))
+                        .tracking(2)
                 }
                 
                 // Timer
                 VStack(spacing: 12) {
                     Text(formattedTime)
-                        .font(.system(size: 120, weight: .black, design: .rounded))
+                        .font(.system(size: 80, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
                     Text("seconds remaining")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 
-                // Motivation message
-                if !motivationMessage.isEmpty {
-                    Text(motivationMessage)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
+                // Motivation
+                Text(motivationMessage)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
                 
                 // Next exercise preview
                 if let nextExercise = nextExercise {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         Text("UP NEXT")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.6))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
                         
                         Text(nextExercise.name)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
+                            .lineLimit(1)
                     }
-                    .padding(20)
+                    .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
                     )
+                    .padding(.horizontal, 40)
                 }
                 
-                // Skip rest button
+                // Skip button
                 Button(action: onSkipRest) {
                     Text("SKIP REST")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(red: 0.05, green: 0.15, blue: 0.35))
                         .padding(.horizontal, 32)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 14)
                         .background(
                             Capsule()
                                 .fill(.white)
+                                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                         )
                 }
                 
                 Spacer()
             }
-            .padding(.horizontal, 40)
         }
         .onChange(of: timeRemaining) { remaining in
             if remaining <= 0 {
@@ -1041,110 +290,736 @@ struct RestPeriodView: View {
     }
 }
 
-// MARK: - Exit Confirmation Overlay
+// MARK: - FitConnect Workout Execution View - FINAL FIX FOR VIDEO LOADING
+
+struct FitConnectWorkoutExecutionView: View {
+    // FIXED: Use the engine as the single source of truth
+    @ObservedObject var workoutEngine: WorkoutExecutionEngine
+    let totalExercises: Int
+    
+    // Callbacks
+    let onSetComplete: () -> Void
+    let onRepCompleted: () -> Void
+    let onSkipCurrentSet: () -> Void
+    let onNextExercise: () -> Void
+    let onPauseWorkout: () -> Void
+    let onResumeWorkout: () -> Void
+    let onExitWorkout: () -> Void
+    
+    @State private var videoURL: URL?
+    @State private var isLoadingVideo = true
+    @State private var showInstructions = false
+    @State private var isVideoReady = false
+    @State private var isVideoPlaying = false
+    
+    @State private var lastExerciseName: String = ""
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color.white
+                    .ignoresSafeArea(.all)
+                
+                VStack(spacing: 0) {
+                    HStack {
+                        Button(action: onExitWorkout) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.1))
+                                    .frame(width: 44, height: 44)
+                                
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.black)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // FIXED: Use totalExercises parameter
+                        Text("\(workoutEngine.currentExerciseIndex + 1) of \(totalExercises) exercises")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.gray)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            if let exercise = workoutEngine.currentExercise, exercise.isTimeBasedExercise {
+                                if isVideoPlaying {
+                                    isVideoPlaying = false
+                                    workoutEngine.pauseExerciseTimer()
+                                    print("[WorkoutExecution] 🎮 PAUSE: Video + Timer paused")
+                                } else {
+                                    isVideoPlaying = true
+                                    workoutEngine.startExerciseTimer()
+                                    print("[WorkoutExecution] 🎮 PLAY: Video + Timer started")
+                                }
+                            } else if !isLoadingVideo {
+                                print("[WorkoutExecution] 🔨 USER FORCE: Making video ready")
+                                isVideoReady = true
+                                isVideoPlaying = true
+                            }
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(isVideoReady ? Color.gray.opacity(0.1) : Color.gray.opacity(0.05))
+                                    .frame(width: 44, height: 44)
+                                
+                                if isVideoReady {
+                                    Image(systemName: isVideoPlaying ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(.black)
+                                } else if isLoadingVideo {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(.black)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 60)
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        if let videoURL = videoURL {
+                            SynchronizedVideoPlayerView(
+                                url: videoURL,
+                                isPlaying: isVideoPlaying,
+                                onVideoReady: {
+                                    print("[WorkoutExecution] 📺 Video component says ready!")
+                                    isLoadingVideo = false
+                                    isVideoReady = true
+                                }
+                            )
+                            .aspectRatio(contentMode: .fill) // Ensure it fills the frame
+                            .frame(height: min(geometry.size.height * 0.45, 350))
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+                            .padding(.horizontal, 20)
+                            .overlay(
+                                Group {
+                                    if isLoadingVideo {
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color.white.opacity(0.9))
+                                            .overlay(
+                                                VStack(spacing: 12) {
+                                                    ProgressView()
+                                                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                                        .scaleEffect(1.2)
+                                                    
+                                                    Text("Loading video...")
+                                                        .font(.system(size: 14, weight: .medium))
+                                                        .foregroundColor(.gray)
+                                                }
+                                            )
+                                            .padding(.horizontal, 20)
+                                    }
+                                }
+                            )
+                            
+                        } else if isLoadingVideo {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: min(geometry.size.height * 0.45, 350))
+                                .overlay(
+                                    VStack(spacing: 12) {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                        
+                                        Text("Loading video...")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.gray)
+                                    }
+                                )
+                                .padding(.horizontal, 20)
+                                
+                        } else {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: min(geometry.size.height * 0.45, 350))
+                                .overlay(
+                                    VStack(spacing: 12) {
+                                        Image(systemName: workoutEngine.currentExercise?.exerciseIcon ?? "figure.strengthtraining.traditional")
+                                            .font(.system(size: 50, weight: .light))
+                                            .foregroundColor(.gray)
+                                        
+                                        Text("Ready to Start!")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.gray)
+                                        
+                                        Text("Tap play button to start")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.gray.opacity(0.7))
+                                    }
+                                )
+                                .padding(.horizontal, 20)
+                                .onAppear {
+                                    print("[WorkoutExecution] 🎯 Fallback ready - no video mode")
+                                    isVideoReady = true
+                                    isLoadingVideo = false
+                                }
+                        }
+                        
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Overall Progress")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.gray)
+                                
+                                Spacer()
+                                
+                                Text("\(Int(workoutEngine.overallProgress * 100))%")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.blue)
+                                    .animation(.easeInOut(duration: 0.3), value: workoutEngine.overallProgress)
+                            }
+                            
+                            ProgressView(value: workoutEngine.overallProgress)
+                                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                                .scaleEffect(y: 2.0)
+                                .animation(.easeInOut(duration: 0.5), value: workoutEngine.overallProgress)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 0) {
+                        VStack(spacing: 20) {
+                            Text(workoutEngine.currentExercise?.name ?? "Exercise")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.black)
+                                .multilineTextAlignment(.center)
+                            
+                            if !isVideoReady && isLoadingVideo {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                        .scaleEffect(0.8)
+                                    
+                                    Text("Loading exercise video...")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.blue)
+                                }
+                                .multilineTextAlignment(.center)
+                            } else if !isVideoReady && !isLoadingVideo {
+                                Text("Video not available - workout ready!")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.green)
+                                    .multilineTextAlignment(.center)
+                            } else if isVideoReady && !isVideoPlaying && (workoutEngine.currentExercise?.isTimeBasedExercise == true) {
+                                Text("Ready to start! Tap play button above.")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.blue)
+                                    .multilineTextAlignment(.center)
+                            } else if workoutEngine.showMotivation && !workoutEngine.motivationMessage.isEmpty {
+                                Text(workoutEngine.motivationMessage)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.blue)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                            }
+                            
+                            if let exercise = workoutEngine.currentExercise {
+                                if exercise.isTimeBasedExercise {
+                                    HStack(spacing: 40) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Elapsed")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.gray)
+                                            
+                                            Text(formatElapsedTime(totalTime: exercise.duration ?? 30, remaining: workoutEngine.exerciseTimeRemaining))
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.black)
+                                        }
+                                        
+                                        Text(formatTime(workoutEngine.exerciseTimeRemaining))
+                                            .font(.system(size: 48, weight: .black))
+                                            .foregroundColor(isVideoPlaying ? .black : .gray)
+                                        
+                                        VStack(alignment: .trailing, spacing: 4) {
+                                            Text("Set")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.gray)
+                                            
+                                            Text("\(workoutEngine.currentSet)/\(workoutEngine.totalSets)")
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.black)
+                                        }
+                                    }
+                                    
+                                } else {
+                                    VStack(spacing: 16) {
+                                        HStack(spacing: 20) {
+                                            VStack(spacing: 4) {
+                                                Text("CURRENT SET")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.gray)
+                                                    .tracking(1)
+                                                
+                                                Text("\(workoutEngine.currentSet)")
+                                                    .font(.system(size: 32, weight: .black))
+                                                    .foregroundColor(.black)
+                                            }
+                                            
+                                            Text("of")
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundColor(.gray)
+                                            
+                                            VStack(spacing: 4) {
+                                                Text("TOTAL SETS")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.gray)
+                                                    .tracking(1)
+                                                
+                                                Text("\(workoutEngine.totalSets)")
+                                                    .font(.system(size: 32, weight: .black))
+                                                    .foregroundColor(.gray)
+                                            }
+                                        }
+                                        
+                                        VStack(spacing: 8) {
+                                            HStack(alignment: .bottom, spacing: 8) {
+                                                Text("\(workoutEngine.repsCompleted)")
+                                                    .font(.system(size: 40, weight: .black))
+                                                    .foregroundColor(.blue)
+                                                
+                                                VStack(spacing: 2) {
+                                                    Text("OF")
+                                                        .font(.system(size: 10, weight: .bold))
+                                                        .foregroundColor(.gray)
+                                                    
+                                                    Text("\(workoutEngine.targetReps)")
+                                                        .font(.system(size: 20, weight: .bold))
+                                                        .foregroundColor(.gray)
+                                                }
+                                                .padding(.bottom, 6)
+                                            }
+                                            
+                                            Text("REPS")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.gray)
+                                                .tracking(1)
+                                            
+                                            ProgressView(value: Double(workoutEngine.repsCompleted), total: Double(workoutEngine.targetReps))
+                                                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                                                .scaleEffect(y: 0.5)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if let exercise = workoutEngine.currentExercise, !exercise.isTimeBasedExercise {
+                                VStack(spacing: 12) {
+                                    if workoutEngine.repsCompleted < workoutEngine.targetReps {
+                                        Button(action: {
+                                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                            impactFeedback.impactOccurred()
+                                            onRepCompleted()
+                                        }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "plus.circle.fill")
+                                                    .font(.system(size: 18))
+                                                
+                                                Text("ADD REP")
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .tracking(0.5)
+                                            }
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .background(
+                                                Capsule()
+                                                    .fill(.blue)
+                                                    .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                                            )
+                                        }
+                                    }
+                                    
+                                    if workoutEngine.repsCompleted >= workoutEngine.targetReps {
+                                        Button(action: {
+                                            let successFeedback = UINotificationFeedbackGenerator()
+                                            successFeedback.notificationOccurred(.success)
+                                            onSetComplete()
+                                        }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.system(size: 18))
+                                                
+                                                Text("COMPLETE SET")
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .tracking(0.5)
+                                            }
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .background(
+                                                Capsule()
+                                                    .fill(.green)
+                                                    .shadow(color: .green.opacity(0.3), radius: 8, x: 0, y: 4)
+                                            )
+                                        }
+                                    }
+                                    
+                                    Button(action: {
+                                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                        impactFeedback.impactOccurred()
+                                        onSkipCurrentSet()
+                                    }) {
+                                        Text("Skip This Set")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.gray)
+                                            .underline()
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 28)
+                                .fill(.white)
+                                .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: -2)
+                        )
+                        .padding(.horizontal, 20)
+                        
+                        // Next exercise preview - ENHANCED
+                        if let nextExercise = workoutEngine.nextExercise, 
+                           workoutEngine.currentExerciseIndex < totalExercises - 1 {
+                            HStack(spacing: 12) {
+                                // Exercise icon instead of image placeholder
+                                Image(systemName: nextExercise.exerciseIcon)
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .frame(width: 40, height: 30)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Up Next")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.5))
+                                    
+                                    Text(nextExercise.name)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                }
+                                
+                                Spacer()
+                                
+                                if !nextExercise.isTimeBasedExercise {
+                                    Text("\(nextExercise.sets ?? 1) sets")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.4, green: 0.8, blue: 0.2),
+                                                Color(red: 0.3, green: 0.7, blue: 0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear {
+            print("[WorkoutExecution] 🎬 View appeared - starting video load")
+            loadExerciseVideo()
+        }
+        .onChange(of: workoutEngine.currentExercise?.id) { newExerciseId in
+            print("[WorkoutExecution] 🔄 Engine exercise changed to: '\(workoutEngine.currentExercise?.name ?? "nil")'")
+            loadExerciseVideo()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            print("[WorkoutExecution] 📱 App entered foreground - retrying video load")
+            if workoutEngine.currentExercise != nil {
+                loadExerciseVideo()
+            }
+        }
+    }
+    
+    private func loadExerciseVideo() {
+        guard let exercise = workoutEngine.currentExercise else {
+            print("[WorkoutExecution] ❌ CRITICAL: No workoutEngine.currentExercise to load video for.")
+            return
+        }
+        
+        // Prevent re-loading the same video
+        if exercise.name == lastExerciseName && videoURL != nil {
+            print("[WorkoutExecution] ✅ Video for '\(exercise.name)' is already loaded.")
+            return
+        }
+        
+        print("[WorkoutExecution] 🚀 SUCCESS: Starting video load for: '\(exercise.name)'")
+        self.lastExerciseName = exercise.name
+        isLoadingVideo = true
+        isVideoReady = false
+        isVideoPlaying = false
+        videoURL = nil
+        
+        Task {
+            do {
+                print("[WorkoutExecution] 🎯 Attempting video fetch for: '\(exercise.name)'")
+                
+                let result = try await withTimeout(seconds: 2.0) {
+                    return try await ExerciseVideoService.shared.fetchExerciseVideo(for: exercise.name)
+                }
+                
+                await MainActor.run {
+                    print("[WorkoutExecution] ✅ Video loaded successfully for '\(exercise.name)': \(result)")
+                    self.videoURL = result
+                    self.isLoadingVideo = false
+                }
+                
+            } catch {
+                print("[WorkoutExecution] ❌ Video loading failed for '\(exercise.name)': \(error)")
+                
+                await MainActor.run {
+                    self.videoURL = nil
+                    self.isLoadingVideo = false
+                    self.isVideoReady = true  
+                    
+                    print("[WorkoutExecution] 🏃‍♂️ FALLBACK READY: No video for '\(exercise.name)' - workout can continue")
+                }
+            }
+        }
+    }
+    
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    private func formatElapsedTime(totalTime: TimeInterval, remaining: TimeInterval) -> String {
+        let elapsed = totalTime - remaining
+        let minutes = Int(elapsed) / 60
+        let seconds = Int(elapsed) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                return try await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw VideoLoadingError.timeout
+            }
+            
+            guard let result = try await group.next() else {
+                throw VideoLoadingError.timeout
+            }
+            
+            group.cancelAll()
+            return result
+        }
+    }
+}
+
+// MARK: - Exit Confirmation Overlay Component
 
 struct ExitConfirmationOverlay: View {
     let onContinue: () -> Void
     let onSaveAndExit: () -> Void
     let onExitWithoutSaving: () -> Void
     
+    @State private var showAnimation = false
+    @State private var backgroundOpacity = 0.0
+    
     var body: some View {
         ZStack {
-            Color.black.opacity(0.8)
+            Color.black.opacity(backgroundOpacity)
                 .ignoresSafeArea()
+                .background(.ultraThinMaterial.opacity(0.8))
             
-            VStack(spacing: 24) {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50, weight: .semibold))
-                        .foregroundColor(.orange)
+            VStack(spacing: 0) {
+                VStack(spacing: 20) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        .orange.opacity(0.3),
+                                        .orange.opacity(0.1),
+                                        .clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 20,
+                                    endRadius: 60
+                                )
+                            )
+                            .frame(width: 120, height: 120)
+                            .scaleEffect(showAnimation ? 1.05 : 1.0)
+                        
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 45, weight: .semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.orange, .red.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: .orange.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
                     
-                    Text("Exit Workout?")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    Text("Your progress will be saved and you can continue later.")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
+                    VStack(spacing: 12) {
+                        Text("Exit Workout?")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, .white.opacity(0.9)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        
+                        Text("Your progress will be saved\nand you can continue later.")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
                 }
+                .padding(.top, 40)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 32)
                 
-                VStack(spacing: 12) {
-                    Button(action: onContinue) {
-                        Text("CONTINUE WORKOUT")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .fill(.white)
-                            )
+                VStack(spacing: 0) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            onContinue()
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                            
+                            Text("CONTINUE WORKOUT")
+                                .font(.system(size: 17, weight: .black, design: .rounded))
+                                .tracking(0.5)
+                        }
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.white, .white.opacity(0.9)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .shadow(color: .white.opacity(0.3), radius: 8, x: 0, y: 4)
+                        )
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
                     
-                    Button(action: onSaveAndExit) {
-                        Text("SAVE & EXIT")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .stroke(.white, lineWidth: 2)
-                            )
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            onSaveAndExit()
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 18, weight: .semibold))
+                            
+                            Text("SAVE & EXIT")
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .tracking(0.5)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            Capsule()
+                                .fill(.clear)
+                                .overlay(
+                                    Capsule()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [.white, .white.opacity(0.6)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
+                                )
+                        )
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
                     
-                    Button(action: onExitWithoutSaving) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            onExitWithoutSaving()
+                        }
+                    }) {
                         Text("Exit Without Saving")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                            .underline()
                     }
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 40)
             }
-            .padding(40)
             .background(
-                RoundedRectangle(cornerRadius: 24)
+                RoundedRectangle(cornerRadius: 28)
                     .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        .white.opacity(0.2),
+                                        .white.opacity(0.05),
+                                        .clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
             )
-            .padding(.horizontal, 40)
+            .scaleEffect(showAnimation ? 1.0 : 0.9)
+            .opacity(showAnimation ? 1.0 : 0.0)
+            .padding(.horizontal, 32)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                showAnimation = true
+                backgroundOpacity = 0.8
+            }
         }
     }
 }
 
-#if DEBUG
-@available(iOS 16.0, *)
-struct WorkoutExecutionView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Create a sample workout for preview only
-        let sampleWorkout = WorkoutSession(
-            userId: "preview-user",
-            workoutType: .strength,
-            name: "Strength Training",
-            description: "Sample workout for preview",
-            estimatedDuration: 1800,
-            estimatedCalories: 300,
-            difficulty: .intermediate,
-            targetMuscleGroups: [.chest, .arms],
-            exercises: [
-                WorkoutExercise(
-                    name: "Push-ups",
-                    exerciseType: .strength,
-                    targetMuscleGroups: [.chest, .arms],
-                    sets: 3,
-                    reps: 10,
-                    instructions: ["Start in plank", "Lower chest", "Push up"],
-                    exerciseIcon: "figure.strengthtraining.traditional"
-                )
-            ]
-        )
-        
-        WorkoutExecutionView(
-            workout: sampleWorkout,
-            onWorkoutComplete: { _ in },
-            onDismiss: { }
-        )
-    }
+enum VideoLoadingError: Error {
+    case timeout
+    case notFound
 }
-#endif

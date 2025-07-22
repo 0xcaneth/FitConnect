@@ -21,11 +21,18 @@ struct WorkoutDashboardView: View {
     @State private var selectedWorkoutTypeForExercises: WorkoutType?
     @State private var showingAICoachInsights = false
     @State private var showingSocialFeed = false  
+    @State private var showCustomWorkoutCreator = false
     
     // Animation states
     @State private var headerAnimation = false
     @State private var cardsAnimation: [Bool] = Array(repeating: false, count: 20)
     
+    // CRITICAL FIX: Real-time stats monitoring for instant updates
+    @State private var lastKnownWorkoutCount: Int = 0
+    @State private var lastKnownStreak: Int = 0
+    @State private var lastKnownCalories: Int = 0
+    @State private var showStatsUpdateAnimation = false
+
     private var filteredWorkouts: [WorkoutSession] {
         if searchText.isEmpty && selectedWorkoutType == nil {
             return workoutService.availableWorkouts
@@ -112,7 +119,7 @@ struct WorkoutDashboardView: View {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
                                     Text("Quick Start")
-                                        .font(.system(size: 24, weight: .black, design: .rounded))
+                                        .font(.system(size: 24, weight: .black, design: .default))
                                         .foregroundStyle(
                                             LinearGradient(
                                                 colors: [.white, .white.opacity(0.8)],
@@ -148,8 +155,15 @@ struct WorkoutDashboardView: View {
                                 }
                                 .padding(.horizontal, 20)
                                 
+                                // ENHANCED QUICK ACTIONS WITH CREATE CUSTOM WORKOUT
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 16) {
+                                        // CREATE CUSTOM WORKOUT - PROMINENT FIRST OPTION
+                                        CreateCustomWorkoutButton {
+                                            print("[WorkoutDashboard] 🎨 Create Custom Workout tapped")
+                                            showCustomWorkoutCreator = true
+                                        }
+                                        
                                         ForEach(Array(WorkoutType.allCases.prefix(4)), id: \.self) { workoutType in
                                             WorkoutQuickActionButton(workoutType: workoutType) {
                                                 print("[WorkoutDashboard] 🎯 Quick action selected: \(workoutType.displayName)")
@@ -222,10 +236,52 @@ struct WorkoutDashboardView: View {
             .onAppear {
                 print(" [DEBUG] WorkoutDashboardView appeared!")
                 initializeDashboard()
+                setupStatsMonitoring()
                 startAnimationSequence()
                 
                 // Configure social service
                 socialService.configure(sessionStore: session)
+            }
+            .task {
+                if let userId = session.currentUserId {
+                    await workoutService.initialize(for: userId)
+                }
+            }
+            .onChange(of: workoutService.workoutStats?.totalWorkouts) { newWorkoutCount in
+                if let newCount = newWorkoutCount, newCount > lastKnownWorkoutCount {
+                    print("[Dashboard] 🎉 NEW WORKOUT DETECTED! Count: \(lastKnownWorkoutCount) → \(newCount)")
+                    
+                    // Celebrate the achievement
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        showStatsUpdateAnimation = true
+                    }
+                    
+                    // Auto-refresh stats display
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        lastKnownWorkoutCount = newCount
+                        showStatsUpdateAnimation = false
+                    }
+                    
+                    // Provide haptic feedback
+                    let successFeedback = UINotificationFeedbackGenerator()
+                    successFeedback.notificationOccurred(.success)
+                }
+            }
+            .onChange(of: workoutService.workoutStats?.currentStreak) { newStreak in
+                if let newStreak = newStreak, newStreak > lastKnownStreak {
+                    print("[Dashboard] 🔥 STREAK INCREASED! \(lastKnownStreak) → \(newStreak)")
+                    lastKnownStreak = newStreak
+                    
+                    // Streak-specific celebration
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                    impactFeedback.impactOccurred()
+                }
+            }
+            .onChange(of: workoutService.workoutStats?.monthlyCalorieProgress) { newCalories in
+                if let newCalories = newCalories, newCalories > lastKnownCalories {
+                    print("[Dashboard] 🔥 CALORIES UPDATED! \(lastKnownCalories) → \(newCalories)")
+                    lastKnownCalories = newCalories
+                }
             }
             .sheet(isPresented: $showWorkoutTypeSelection) {
                 WorkoutTypeSelectionView { workoutType in
@@ -309,10 +365,46 @@ struct WorkoutDashboardView: View {
                     .environmentObject(socialService)
                     .environmentObject(session)
             }
-            .task {
-                if let userId = session.currentUserId {
-                    await workoutService.initialize(for: userId)
-                }
+            .sheet(isPresented: $showCustomWorkoutCreator) {
+                CustomWorkoutCreatorView(
+                    onWorkoutCreated: { customWorkout in
+                        print("[WorkoutDashboard] ✅ Custom workout created: \(customWorkout.name)")
+                        
+                        // CRITICAL FIX: Save custom workout to Firebase first, then start
+                        Task {
+                            let result = await workoutService.startWorkout(customWorkout)
+                            switch result {
+                            case .success(let workoutId):
+                                print("[WorkoutDashboard] 🔥 Custom workout saved to Firebase with ID: \(workoutId)")
+                                
+                                // Update the workout with the Firebase ID
+                                var savedWorkout = customWorkout
+                                savedWorkout.id = workoutId
+                                
+                                await MainActor.run {
+                                    // Now start the workout with the properly saved workout
+                                    selectedWorkout = savedWorkout
+                                    showingWorkoutDetail = true
+                                    showCustomWorkoutCreator = false
+                                }
+                                
+                            case .failure(let error):
+                                print("[WorkoutDashboard] ❌ Failed to save custom workout: \(error)")
+                                // Still show the workout detail as fallback
+                                await MainActor.run {
+                                    selectedWorkout = customWorkout
+                                    showingWorkoutDetail = true
+                                    showCustomWorkoutCreator = false
+                                }
+                            }
+                        }
+                    },
+                    onDismiss: {
+                        showCustomWorkoutCreator = false
+                    }
+                )
+                .presentationDragIndicator(.hidden)
+                .presentationCornerRadius(20)
             }
         }
     }
@@ -379,15 +471,11 @@ struct WorkoutDashboardView: View {
                     Text("Ready to Train?")
                         .font(.system(size: 28, weight: .bold, design: .default))
                         .foregroundColor(.white)
-                        .scaleEffect(headerAnimation ? 1.0 : 0.9)
-                        .opacity(headerAnimation ? 1.0 : 0.0)
                     
                     if let userName = session.currentUser?.firstName {
                         Text("Hello, \(userName)")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.secondary)
-                            .scaleEffect(headerAnimation ? 1.0 : 0.9)
-                            .opacity(headerAnimation ? 1.0 : 0.0)
                     }
                 }
                 
@@ -795,6 +883,16 @@ struct WorkoutDashboardView: View {
         }
     }
     
+    // CRITICAL FIX: Setup real-time stats monitoring
+    private func setupStatsMonitoring() {
+        // Initialize baseline values
+        lastKnownWorkoutCount = workoutService.workoutStats?.totalWorkouts ?? 0
+        lastKnownStreak = workoutService.workoutStats?.currentStreak ?? 0
+        lastKnownCalories = workoutService.workoutStats?.monthlyCalorieProgress ?? 0
+        
+        print("[Dashboard] 📊 Stats monitoring initialized - Workouts: \(lastKnownWorkoutCount), Streak: \(lastKnownStreak), Calories: \(lastKnownCalories)")
+    }
+    
     private func startWorkout(_ workout: WorkoutSession) {
         Task {
             let result = await workoutService.startWorkout(workout)
@@ -910,9 +1008,11 @@ struct WorkoutDashboardView: View {
             } else {
                 let daysSinceLastWorkout = getDaysSinceLastWorkout(stats.lastWorkoutDate)
                 if daysSinceLastWorkout < 3 {
-                    return "Ready for your next workout? 💪"
+                    return "Your body is primed for the next session! Based on your recovery patterns, I recommend a balanced approach to rebuild momentum."
+                } else if daysSinceLastWorkout < 7 {
+                    return "I've adapted your program based on the break. Let's restart with workouts that feel achievable and gradually build back your routine."
                 } else {
-                    return "Let's get back into it! You've got this 🌟"
+                    return "Welcome back! I've redesigned your approach based on your previous successes. Let's start with what worked best for you before."
                 }
             }
         }
@@ -928,7 +1028,6 @@ struct WorkoutDashboardView: View {
         
         guard goal > 0 else { return 0.0 }
         
-        // Cap at 100% for visual consistency
         return min(current / goal, 1.0)
     }
     
@@ -1690,7 +1789,7 @@ struct EnhancedWorkoutStatsCard: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(color.opacity(0.3), lineWidth: 1)
                 )
         )
@@ -1750,8 +1849,6 @@ struct EnhancedWorkoutRecommendationCard: View {
                             Text(description)
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(3)
                         }
                     }
                     
