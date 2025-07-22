@@ -392,12 +392,12 @@ private struct SizePreferenceKey: PreferenceKey {
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
 }
 
-
 #Preview {
     ExerciseDetailView(
         exercise: WorkoutExercise(
             name: "Barbell Bench Press",
             description: "Classic chest builder and upper body strength foundation. Essential for developing pectoral muscles, deltoids, and triceps.",
+            exerciseType: .strength,
             targetMuscleGroups: [.chest, .shoulders, .arms],
             sets: 3,
             reps: 8,

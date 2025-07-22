@@ -9,55 +9,66 @@ struct ClientAppointmentDetailModal: View {
     
     @State private var isCancelling = false
     @State private var showCancelConfirmation = false
+    @State private var animationPhase: CGFloat = 0
     
     var body: some View {
         ZStack {
-            // Background overlay with blur
-            Color.black.opacity(0.6)
+            // Ultra-premium background overlay
+            Color.black.opacity(0.9)
                 .ignoresSafeArea()
                 .onTapGesture {
                     dismiss()
                 }
             
-            // Modal content
+            // Main modal content
             VStack(spacing: 0) {
-                // Header with gradient
-                headerView
+                // Ultra-modern header
+                premiumDetailHeader
                 
-                // Content
+                // Content sections
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // Dietitian info with glass effect
-                        dietitianInfoSection
+                    VStack(spacing: 28) {
+                        // Hero appointment section
+                        heroAppointmentInfo
+                            .scaleEffect(animationPhase)
+                            .opacity(animationPhase)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1), value: animationPhase)
                         
-                        // Appointment details with clean design
-                        appointmentDetailsSection
+                        // Detailed info cards
+                        appointmentDetailsGrid
+                            .scaleEffect(animationPhase)
+                            .opacity(animationPhase)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animationPhase)
                         
                         // Notes section
                         if let notes = appointment.notes, !notes.isEmpty {
-                            notesSection(notes: notes)
+                            premiumNotesDisplay(notes: notes)
+                                .scaleEffect(animationPhase)
+                                .opacity(animationPhase)
+                                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: animationPhase)
                         }
                         
-                        // Actions with better spacing
+                        // Action buttons
                         if canCancelAppointment {
-                            actionsSection
+                            premiumActionButtons
+                                .scaleEffect(animationPhase)
+                                .opacity(animationPhase)
+                                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4), value: animationPhase)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 24)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 20)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(maxHeight: UIScreen.main.bounds.height * 0.8)
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.9)
             .background(
-                // Glass morphism background
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(Color.black.opacity(0.85))
+                RoundedRectangle(cornerRadius: 32)
+                    .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 28)
+                        RoundedRectangle(cornerRadius: 32)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.2), Color.clear],
+                                    colors: [.white.opacity(0.4), .clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -65,8 +76,13 @@ struct ClientAppointmentDetailModal: View {
                             )
                     )
             )
-            .padding(.horizontal, 16)
-            .padding(.top, UIScreen.main.bounds.height * 0.15)
+            .padding(16)
+            .shadow(color: .black.opacity(0.3), radius: 25, x: 0, y: 15)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                animationPhase = 1
+            }
         }
         .alert("Cancel Appointment", isPresented: $showCancelConfirmation) {
             Button("Keep Appointment", role: .cancel) { }
@@ -83,23 +99,34 @@ struct ClientAppointmentDetailModal: View {
         return (appointment.status == .pending || appointment.status == .accepted) && appointment.isUpcoming()
     }
     
-    private var headerView: some View {
-        VStack(spacing: 0) {
+    // MARK: - Premium Header
+    private var premiumDetailHeader: some View {
+        VStack(spacing: 16) {
             // Drag indicator
             RoundedRectangle(cornerRadius: 3)
-                .fill(Color.white.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 12)
-                .padding(.bottom, 20)
+                .fill(.white.opacity(0.4))
+                .frame(width: 40, height: 6)
+                .padding(.top, 16)
             
             HStack {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Appointment Details")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    .white,
+                                    FitConnectColors.accentBlue.opacity(0.9),
+                                    FitConnectColors.accentPurple.opacity(0.8)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                     
                     Text(formatDate(appointment.startTime.dateValue()))
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
                 }
                 
@@ -108,238 +135,318 @@ struct ClientAppointmentDetailModal: View {
                 Button {
                     dismiss()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 32, height: 32)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
+                    ZStack {
+                        Circle()
+                            .fill(.white.opacity(0.1))
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Circle()
+                                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                            )
+                        
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
                 }
+                .buttonStyle(PremiumPressStyle())
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 20)
         }
+        .padding(.bottom, 24)
         .background(
             LinearGradient(
-                colors: [FitConnectColors.accentBlue.opacity(0.3), Color.clear],
+                colors: [
+                    FitConnectColors.accentBlue.opacity(0.15),
+                    .clear
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         )
     }
     
-    private var dietitianInfoSection: some View {
-        HStack(spacing: 16) {
-            // Enhanced avatar with gradient
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [FitConnectColors.accentBlue, FitConnectColors.accentPurple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 64, height: 64)
-                
-                Image(systemName: "stethoscope")
-                    .font(.system(size: 24, weight: .bold))
+    // MARK: - Hero Appointment Info
+    private var heroAppointmentInfo: some View {
+        VStack(spacing: 24) {
+            // Main appointment time display
+            VStack(spacing: 12) {
+                Text(appointment.timeRangeString)
+                    .font(.system(size: 36, weight: .black, design: .rounded))
                     .foregroundColor(.white)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Your Dietitian")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                 
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(appointment.status.color)
-                        .frame(width: 8, height: 8)
-                    
-                    Text(appointment.status.displayName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(appointment.status.color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(appointment.status.color.opacity(0.15))
-                        .clipShape(Capsule())
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-        )
-    }
-    
-    private var appointmentDetailsSection: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Appointment Details")
+                Text(appointment.durationString)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                Spacer()
+                    .foregroundColor(.white.opacity(0.8))
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 16)
             
-            VStack(spacing: 0) {
-                appointmentDetailRow(
-                    icon: "clock.fill",
-                    title: "Time",
-                    value: appointment.timeRangeString,
-                    isFirst: true
-                )
-                
-                appointmentDetailRow(
-                    icon: "timer",
-                    title: "Duration",
-                    value: appointment.durationString
-                )
-                
-                appointmentDetailRow(
-                    icon: "calendar",
-                    title: "Date",
-                    value: formatDate(appointment.startTime.dateValue())
-                )
-                
-                if appointment.isUpcoming() {
-                    appointmentDetailRow(
-                        icon: "hourglass",
-                        title: "Starts in",
-                        value: timeUntilAppointment(),
-                        isLast: true
+            // Status and countdown
+            HStack(spacing: 16) {
+                // Status badge
+                Text(appointment.status.displayName)
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundColor(appointment.status.color)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(appointment.status.color.opacity(0.25))
+                            .overlay(
+                                Capsule()
+                                    .stroke(appointment.status.color.opacity(0.5), lineWidth: 1)
+                            )
                     )
+                
+                Spacer()
+                
+                // Countdown if upcoming
+                if appointment.isUpcoming() {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Starts in")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                        
+                        Text(timeUntilAppointment())
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundColor(FitConnectColors.accentBlue)
+                    }
                 }
             }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-        )
-    }
-    
-    private func appointmentDetailRow(icon: String, title: String, value: String, isFirst: Bool = false, isLast: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 16) {
+            
+            // Dietitian card with premium styling
+            HStack(spacing: 20) {
                 ZStack {
                     Circle()
-                        .fill(FitConnectColors.accentBlue.opacity(0.2))
-                        .frame(width: 36, height: 36)
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    FitConnectColors.accentBlue.opacity(0.4),
+                                    FitConnectColors.accentBlue.opacity(0.1)
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 50
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                        .overlay(
+                            Circle()
+                                .stroke(FitConnectColors.accentBlue.opacity(0.5), lineWidth: 2)
+                        )
                     
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
+                    Image(systemName: "stethoscope")
+                        .font(.system(size: 32, weight: .semibold))
                         .foregroundColor(FitConnectColors.accentBlue)
                 }
                 
-                Text(title)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Your Dietitian")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Text("Professional nutrition consultation")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.green)
+                        
+                        Text("Verified Expert")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.green)
+                    }
+                }
                 
                 Spacer()
-                
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+        }
+        .padding(32)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.08),
+                            .white.opacity(0.03)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+    }
+    
+    // MARK: - Details Grid
+    private var appointmentDetailsGrid: some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible()),
+            GridItem(.flexible())
+        ], spacing: 16) {
+            premiumDetailCard(
+                icon: "calendar.circle.fill",
+                iconColor: FitConnectColors.accentPurple,
+                title: "Date",
+                value: formatDate(appointment.startTime.dateValue())
+            )
             
-            if !isLast {
-                Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(height: 0.5)
-                    .padding(.leading, 72)
+            premiumDetailCard(
+                icon: "clock.circle.fill",
+                iconColor: FitConnectColors.accentBlue,
+                title: "Duration",
+                value: appointment.durationString
+            )
+            
+            if appointment.isUpcoming() {
+                premiumDetailCard(
+                    icon: "hourglass.circle.fill",
+                    iconColor: .orange,
+                    title: "Countdown",
+                    value: timeUntilAppointment()
+                )
+                
+                premiumDetailCard(
+                    icon: "bell.circle.fill",
+                    iconColor: .green,
+                    title: "Reminder",
+                    value: "15 min before"
+                )
             }
         }
     }
     
-    private func notesSection(notes: String) -> some View {
+    private func premiumDetailCard(icon: String, iconColor: Color, title: String, value: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundColor(iconColor)
+            
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Text(value)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(iconColor.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+    
+    // MARK: - Notes Display
+    private func premiumNotesDisplay(notes: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "note.text")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(FitConnectColors.accentBlue)
+                Image(systemName: "note.text.badge.plus")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.orange)
                 
-                Text("Notes")
-                    .font(.system(size: 18, weight: .semibold))
+                Text("Appointment Notes")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
+                
                 Spacer()
             }
             
             Text(notes)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundColor(.white.opacity(0.8))
-                .lineSpacing(4)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
+                .lineSpacing(6)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
         }
-        .padding(20)
+        .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(.orange.opacity(0.4), lineWidth: 1)
+                )
         )
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
     
-    private var actionsSection: some View {
-        VStack(spacing: 12) {
+    // MARK: - Action Buttons
+    private var premiumActionButtons: some View {
+        VStack(spacing: 16) {
             Button {
                 showCancelConfirmation = true
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 16) {
                     if isCancelling {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.9)
                     } else {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.system(size: 20, weight: .bold))
                     }
                     
                     Text(isCancelling ? "Cancelling..." : "Cancel Appointment")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 18, weight: .black, design: .rounded))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .padding(.vertical, 18)
                 .background(
-                    LinearGradient(
-                        colors: [Color.red, Color.red.opacity(0.8)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            LinearGradient(
+                                colors: [.red, .red.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.red.opacity(0.2), lineWidth: 1)
-                )
+                .shadow(color: .red.opacity(0.4), radius: 15, x: 0, y: 8)
+                .scaleEffect(isCancelling ? 0.98 : 1.0)
             }
+            .buttonStyle(PremiumPressStyle())
             .disabled(isCancelling)
-            .scaleEffect(isCancelling ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: isCancelling)
             
             Button {
                 dismiss()
             } label: {
                 Text("Close")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .padding(.vertical, 18)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white.opacity(0.1))
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(.white.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                            )
                     )
             }
+            .buttonStyle(PremiumPressStyle())
         }
         .padding(.top, 8)
     }
+    
+    // MARK: - Helper Methods
     
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
@@ -379,8 +486,8 @@ struct ClientAppointmentDetailModal: View {
         isCancelling = true
         onCancel()
         
-        // Simulate delay for user feedback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Smooth dismissal after cancellation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             dismiss()
         }
     }
@@ -395,7 +502,7 @@ struct ClientAppointmentDetailModal_Previews: PreviewProvider {
                 clientId: "client123",
                 startTime: Date().addingTimeInterval(3600),
                 endTime: Date().addingTimeInterval(7200),
-                notes: "This is a sample appointment note for preview purposes.",
+                notes: "This is a sample appointment note for preview purposes. Let's discuss my current diet plan and how we can improve it for better results.",
                 status: .accepted
             ),
             onCancel: {}

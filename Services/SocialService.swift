@@ -3,7 +3,7 @@ import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
-/// 🚀 PRODUCTION-READY Social Service for 10M+ users
+/// PRODUCTION-READY Social Service for 10M+ users
 /// Instagram + TikTok killer social features
 @MainActor
 final class SocialService: ObservableObject {
@@ -50,12 +50,12 @@ final class SocialService: ObservableObject {
                 guard let self = self else { return }
                 
                 if isLoggedIn, let userId = userId, !userId.isEmpty {
-                    print("[SocialService] 🚀 User authenticated (ID: \(userId)). Starting social features...")
+                    print("[SocialService] User authenticated (ID: \(userId)). Starting social features...")
                     Task {
                         await self.startSocialServices(userId: userId)
                     }
                 } else {
-                    print("[SocialService] 🔒 User not authenticated. Stopping social services...")
+                    print("[SocialService] User not authenticated. Stopping social services...")
                     self.stopAllListeners()
                     self.clearData()
                 }
@@ -71,7 +71,7 @@ final class SocialService: ObservableObject {
     }
     
     private func startSocialServices(userId: String) async {
-        print("[SocialService] 🎯 Starting all social services for user: \(userId)")
+        print("[SocialService] Starting all social services for user: \(userId)")
         
         // Start all social features simultaneously
         async let friendActivitiesTask = startFriendActivityFeed(userId: userId)
@@ -92,9 +92,9 @@ final class SocialService: ObservableObject {
                 notificationsTask
             )
             
-            print("[SocialService] ✅ All social services started successfully")
+            print("[SocialService] All social services started successfully")
         } catch {
-            print("[SocialService] ❌ Error starting social services: \(error)")
+            print("[SocialService] Error starting social services: \(error)")
             self.errorMessage = "Failed to load social features: \(error.localizedDescription)"
         }
     }
@@ -102,14 +102,14 @@ final class SocialService: ObservableObject {
     // MARK: - Friend Activity Feed (Instagram-style)
     
     private func startFriendActivityFeed(userId: String) async throws {
-        print("[SocialService] 👥 Starting friend activity feed...")
+        print("[SocialService] Starting friend activity feed...")
         isLoadingFeed = true
         
         // Get user's following list first
         let followingIds = try await getUserFollowing(userId: userId)
         
         if followingIds.isEmpty {
-            print("[SocialService] 📭 No friends to show activities for")
+            print("[SocialService] No friends to show activities for")
             self.friendActivities = []
             self.isLoadingFeed = false
             return
@@ -127,20 +127,20 @@ final class SocialService: ObservableObject {
             
             Task { @MainActor in
                 if let error = error {
-                    print("[SocialService] ❌ Friend activity listener error: \(error)")
+                    print("[SocialService] Friend activity listener error: \(error)")
                     self.errorMessage = error.localizedDescription
                     self.isLoadingFeed = false
                     return
                 }
                 
                 guard let documents = snapshot?.documents else {
-                    print("[SocialService] 📭 No friend activities found")
+                    print("[SocialService] No friend activities found")
                     self.friendActivities = []
                     self.isLoadingFeed = false
                     return
                 }
                 
-                print("[SocialService] 📱 Received \(documents.count) friend activities")
+                print("[SocialService] Received \(documents.count) friend activities")
                 
                 self.friendActivities = documents.compactMap { doc in
                     do {
@@ -148,7 +148,7 @@ final class SocialService: ObservableObject {
                         activity.id = doc.documentID
                         return activity
                     } catch {
-                        print("[SocialService] ❌ Error decoding friend activity: \(error)")
+                        print("[SocialService] Error decoding friend activity: \(error)")
                         return nil
                     }
                 }
@@ -163,7 +163,7 @@ final class SocialService: ObservableObject {
     // MARK: - Global Feed (TikTok For You Page style)
     
     private func startGlobalFeed() async throws {
-        print("[SocialService] 🌍 Starting global feed...")
+        print("[SocialService] Starting global feed...")
         
         // Global trending activities from all users
         let globalRef = db.collection("socialActivities")
@@ -177,7 +177,7 @@ final class SocialService: ObservableObject {
             
             Task { @MainActor in
                 if let error = error {
-                    print("[SocialService] ❌ Global feed listener error: \(error)")
+                    print("[SocialService] Global feed listener error: \(error)")
                     return
                 }
                 
@@ -187,12 +187,12 @@ final class SocialService: ObservableObject {
                         activity.id = doc.documentID
                         return activity
                     } catch {
-                        print("[SocialService] ❌ Error decoding global activity: \(error)")
+                        print("[SocialService] Error decoding global activity: \(error)")
                         return nil
                     }
                 } ?? []
                 
-                print("[SocialService] 🌍 Loaded \(self.globalFeed.count) global activities")
+                print("[SocialService] Loaded \(self.globalFeed.count) global activities")
             }
         }
         
@@ -202,7 +202,7 @@ final class SocialService: ObservableObject {
     // MARK: - Friend Suggestions (Instagram-style)
     
     private func loadFriendSuggestions(userId: String) async throws {
-        print("[SocialService] 🔍 Loading friend suggestions...")
+        print("[SocialService] Loading friend suggestions...")
         isLoadingFriends = true
         
         // Get users with similar interests or mutual connections
@@ -221,7 +221,7 @@ final class SocialService: ObservableObject {
                 user.id = doc.documentID
                 return user
             } catch {
-                print("[SocialService] ❌ Error decoding user suggestion: \(error)")
+                print("[SocialService] Error decoding user suggestion: \(error)")
                 return nil
             }
         }
@@ -236,13 +236,13 @@ final class SocialService: ObservableObject {
         self.friendSuggestions = Array(filteredSuggestions.prefix(10))
         self.isLoadingFriends = false
         
-        print("[SocialService] ✅ Loaded \(self.friendSuggestions.count) friend suggestions")
+        print("[SocialService] Loaded \(self.friendSuggestions.count) friend suggestions")
     }
     
     // MARK: - Trending Challenges (TikTok Challenge style)
     
     private func loadTrendingChallenges() async throws {
-        print("[SocialService] 📈 Loading trending challenges...")
+        print("[SocialService] Loading trending challenges...")
         isLoadingChallenges = true
         
         let trendingQuery = db.collection("challenges")
@@ -258,20 +258,20 @@ final class SocialService: ObservableObject {
                 challenge.id = doc.documentID
                 return challenge
             } catch {
-                print("[SocialService] ❌ Error decoding trending challenge: \(error)")
+                print("[SocialService] Error decoding trending challenge: \(error)")
                 return nil
             }
         }
         
         self.isLoadingChallenges = false
         
-        print("[SocialService] ✅ Loaded \(self.trendingChallenges.count) trending challenges")
+        print("[SocialService] Loaded \(self.trendingChallenges.count) trending challenges")
     }
     
     // MARK: - Social Stats
     
     private func loadSocialStats(userId: String) async throws {
-        print("[SocialService] 📊 Loading social stats...")
+        print("[SocialService] Loading social stats...")
         
         let userDoc = try await db.collection("users").document(userId).getDocument()
         guard let userData = userDoc.data() else { return }
@@ -290,13 +290,13 @@ final class SocialService: ObservableObject {
             socialScore: socialScore
         )
         
-        print("[SocialService] 📊 Social stats: \(followerCount) followers, \(followingCount) following")
+        print("[SocialService] Social stats: \(followerCount) followers, \(followingCount) following")
     }
     
     // MARK: - Notifications
     
     private func startNotificationListener(userId: String) async throws {
-        print("[SocialService] 🔔 Starting notification listener...")
+        print("[SocialService] Starting notification listener...")
         
         let notificationsRef = db.collection("socialNotifications")
             .whereField("recipientId", isEqualTo: userId)
@@ -309,7 +309,7 @@ final class SocialService: ObservableObject {
             
             Task { @MainActor in
                 if let error = error {
-                    print("[SocialService] ❌ Notifications listener error: \(error)")
+                    print("[SocialService] Notifications listener error: \(error)")
                     return
                 }
                 
@@ -319,12 +319,12 @@ final class SocialService: ObservableObject {
                         notification.id = doc.documentID
                         return notification
                     } catch {
-                        print("[SocialService] ❌ Error decoding notification: \(error)")
+                        print("[SocialService] Error decoding notification: \(error)")
                         return nil
                     }
                 } ?? []
                 
-                print("[SocialService] 🔔 Loaded \(self.notifications.count) unread notifications")
+                print("[SocialService] Loaded \(self.notifications.count) unread notifications")
             }
         }
         
@@ -347,12 +347,12 @@ final class SocialService: ObservableObject {
             throw SocialError.userNotAuthenticated
         }
         
-        print("[SocialService] 📝 Creating social activity: \(type.displayName)")
+        print("[SocialService] Creating social activity: \(type.displayName)")
         
         let activity = SocialActivity(
             userId: userId,
             userName: user.fullName,
-            userAvatar: user.profileImageURL,
+            userAvatar: user.profileImageUrl,
             type: type,
             content: content,
             imageURL: imageURL,
@@ -366,7 +366,7 @@ final class SocialService: ObservableObject {
         
         try await db.collection("socialActivities").addDocument(from: activity)
         
-        print("[SocialService] ✅ Social activity created successfully")
+        print("[SocialService] Social activity created successfully")
         
         // Update user's social score
         try await updateUserSocialScore(userId: userId, boost: 10)
@@ -400,7 +400,7 @@ final class SocialService: ObservableObject {
         
         try await batch.commit()
         
-        print("[SocialService] 👍 Liked activity: \(activityId)")
+        print("[SocialService] Liked activity: \(activityId)")
         
         // Send notification to activity owner
         try await sendEngagementNotification(
@@ -434,7 +434,7 @@ final class SocialService: ObservableObject {
         
         try await batch.commit()
         
-        print("[SocialService] 👎 Unliked activity: \(activityId)")
+        print("[SocialService] Unliked activity: \(activityId)")
     }
     
     func commentOnActivity(_ activityId: String, comment: String) async throws {
@@ -446,7 +446,7 @@ final class SocialService: ObservableObject {
         let commentData = SocialComment(
             userId: userId,
             userName: user.fullName,
-            userAvatar: user.profileImageURL,
+            userAvatar: user.profileImageUrl,
             content: comment,
             createdAt: Timestamp(date: Date())
         )
@@ -471,7 +471,7 @@ final class SocialService: ObservableObject {
         
         try await batch.commit()
         
-        print("[SocialService] 💬 Commented on activity: \(activityId)")
+        print("[SocialService] Commented on activity: \(activityId)")
         
         // Send notification to activity owner
         try await sendEngagementNotification(
@@ -496,7 +496,7 @@ final class SocialService: ObservableObject {
                 "lastEngagement": FieldValue.serverTimestamp()
             ])
         
-        print("[SocialService] 📤 Shared activity: \(activityId) to \(platform.displayName)")
+        print("[SocialService] Shared activity: \(activityId) to \(platform.displayName)")
         
         // Track share analytics
         try await trackSocialAction(
@@ -519,7 +519,7 @@ final class SocialService: ObservableObject {
         imageURL: String? = nil
     ) async throws {
         
-        let content = "\(message)\n\n💪 Progress: \(Int(progress))/\(Int(targetValue)) \(unit)"
+        let content = "\(message)\n\n Progress: \(Int(progress))/\(Int(targetValue)) \(unit)"
         
         try await createActivity(
             type: .challengeProgress,
@@ -528,7 +528,7 @@ final class SocialService: ObservableObject {
             challengeId: challengeId
         )
         
-        print("[SocialService] 🎯 Created challenge progress post")
+        print("[SocialService] Created challenge progress post")
     }
     
     func completeChallenge(
@@ -538,7 +538,7 @@ final class SocialService: ObservableObject {
         achievements: [String] = []
     ) async throws {
         
-        let content = "🎉 Just completed the '\(challengeTitle)' challenge! Final score: \(Int(finalProgress))"
+        let content = "Just completed the '\(challengeTitle)' challenge! Final score: \(Int(finalProgress))"
         
         try await createActivity(
             type: .challengeCompleted,
@@ -547,7 +547,7 @@ final class SocialService: ObservableObject {
             achievements: achievements
         )
         
-        print("[SocialService] 🏆 Created challenge completion post")
+        print("[SocialService] Created challenge completion post")
         
         // Boost social score for completing challenges
         if let userId = sessionStore?.currentUserId {
@@ -597,7 +597,7 @@ final class SocialService: ObservableObject {
             recipientId: ownerId,
             senderId: fromUserId,
             senderName: senderName,
-            senderAvatar: senderData["profileImageURL"] as? String,
+            senderAvatar: senderData["profileImageUrl"] as? String,
             type: type,
             activityId: activityId,
             content: content,
@@ -631,7 +631,7 @@ final class SocialService: ObservableObject {
     private func stopAllListeners() {
         listeners.forEach { $0.remove() }
         listeners.removeAll()
-        print("[SocialService] 🛑 Stopped all listeners")
+        print("[SocialService] Stopped all listeners")
     }
     
     private func clearData() {
@@ -647,7 +647,7 @@ final class SocialService: ObservableObject {
         isLoadingFriends = false
         isLoadingChallenges = false
         
-        print("[SocialService] 🧹 Cleared all data")
+        print("[SocialService] Cleared all data")
     }
     
     // MARK: - Public Utility Methods
@@ -664,7 +664,7 @@ final class SocialService: ObservableObject {
             
             return doc.exists
         } catch {
-            print("[SocialService] ❌ Error checking like status: \(error)")
+            print("[SocialService] Error checking like status: \(error)")
             return false
         }
     }

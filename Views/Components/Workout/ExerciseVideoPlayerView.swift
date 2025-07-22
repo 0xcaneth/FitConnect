@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AVKit
 
 /// Video player for exercise demonstrations during workout
 struct ExerciseVideoPlayerView: View {
@@ -24,7 +25,7 @@ struct ExerciseVideoPlayerView: View {
             )
             
             if let player = player, !videoError {
-                VideoPlayer(player: player)
+                CustomVideoPlayer(player: player)
                     .onTapGesture {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             showVideoControls.toggle()
@@ -112,8 +113,12 @@ struct ExerciseVideoPlayerView: View {
     private func setupVideoPlayer() {
         // Try to load exercise video
         if let videoURL = exercise.videoURL {
-            let url = URL(string: videoURL)
-            player = AVPlayer(url: url!)
+            guard let url = URL(string: videoURL) else {
+                videoError = true
+                return
+            }
+            
+            player = AVPlayer(url: url)
             
             // Loop the video
             NotificationCenter.default.addObserver(
@@ -122,7 +127,7 @@ struct ExerciseVideoPlayerView: View {
                 queue: .main
             ) { _ in
                 player?.seek(to: .zero)
-                if isPlaying {
+                if self.isPlaying {
                     player?.play()
                 }
             }
@@ -230,9 +235,9 @@ struct ExerciseFallbackView: View {
     }
 }
 
-// MARK: - Video Player Wrapper
+// MARK: - Custom Video Player Wrapper (Fixed naming conflict)
 
-struct VideoPlayer: UIViewControllerRepresentable {
+struct CustomVideoPlayer: UIViewControllerRepresentable {
     let player: AVPlayer
     
     func makeUIViewController(context: Context) -> AVPlayerViewController {

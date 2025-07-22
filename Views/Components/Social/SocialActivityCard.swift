@@ -303,7 +303,7 @@ struct SocialActivityCard: View {
     // MARK: - Helper Properties
     
     private var timeAgoDisplay: String {
-        guard let createdAt = activity.createdAt else { return "now" }
+        let createdAt = activity.createdAt
         
         let date = createdAt.dateValue()
         let now = Date()
@@ -372,6 +372,12 @@ struct ShareSheetView: View {
                     }
                 }
                 .padding(.horizontal, 40)
+                
+                Button("Upgrade to Premium") {
+                    // Handle premium upgrade
+                    print("[AI Coach] Premium upgrade tapped")
+                    dismiss()
+                }
                 
                 Spacer()
             }

@@ -1,7 +1,7 @@
 import SwiftUI
 import FirebaseFirestore
 
-/// 🎯 Social Activity Preview Card - Instagram Story style preview
+/// Social Activity Preview Card - Instagram Story style preview
 @available(iOS 16.0, *)
 struct SocialActivityPreviewCard: View {
     let activity: SocialActivity
@@ -223,7 +223,7 @@ struct SocialActivityPreviewCard: View {
     }
     
     private var timeAgoDisplay: String {
-        guard let createdAt = activity.createdAt else { return "now" }
+        let createdAt = activity.createdAt
         
         let date = createdAt.dateValue()
         let now = Date()
@@ -253,7 +253,7 @@ struct SocialActivityPreviewCard_Previews: PreviewProvider {
             userName: "Alex Johnson",
             userAvatar: nil,
             type: .workoutCompleted,
-            content: "Just completed an amazing HIIT workout! Burned 450 calories in 30 minutes 💪🔥",
+            content: "Just completed an amazing HIIT workout! Burned 450 calories in 30 minutes ",
             imageURL: nil,
             challengeId: nil,
             workoutId: "workout123",

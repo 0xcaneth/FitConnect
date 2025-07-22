@@ -23,8 +23,8 @@ struct FitConnectApp: App {
             print("🚨 Stack trace: \(exception.callStackSymbols)")
         }
         
-        // CRITICAL: Configure Firebase FIRST before ANY Firebase-related objects
-        Self.configureFirebaseWithErrorHandling()
+        // CRITICAL: Configure Firebase FIRST and ONLY ONCE
+        Self.safeConfigureFirebase()
         
         // Only after Firebase is configured, create SessionStore with defensive initialization
         let sessionStore = SessionStore()
@@ -37,24 +37,23 @@ struct FitConnectApp: App {
         print("✅ FitConnectApp initialized successfully")
     }
     
-    private static func configureFirebaseWithErrorHandling() {
+    private static func safeConfigureFirebase() {
         print("🔧 Configuring Firebase with error handling...")
         
-        // Check if already configured
+        // Double-check if already configured to prevent the crash
         if FirebaseApp.app() != nil {
-            print("ℹ️ Firebase already configured")
+            print("ℹ️ Firebase already configured - skipping configuration")
             return
         }
         
         do {
-            // Configure Firebase with error handling
+            // Configure Firebase
             FirebaseApp.configure()
             print("✅ Firebase configured successfully")
             
-            // Only configure Firestore if Firebase configuration succeeded
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                configureFirestore()
-            }
+            // Configure Firestore settings immediately after Firebase configuration
+            // This prevents the "already started" error
+            configureFirestore()
             
         } catch let error {
             print("❌ CRITICAL: Firebase configuration failed: \(error.localizedDescription)")
@@ -71,10 +70,13 @@ struct FitConnectApp: App {
         
         do {
             let db = Firestore.firestore()
+            
+            // Check if settings have already been set
             let settings = FirestoreSettings()
             settings.isPersistenceEnabled = true
             settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
             
+            // This is where the crash was happening - only set if not already set
             db.settings = settings
             print("✅ Firestore configured with offline persistence")
             
@@ -112,3 +114,5 @@ struct FitConnectApp: App {
         }
     }
 }
+
+

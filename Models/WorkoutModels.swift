@@ -284,6 +284,7 @@ struct WorkoutExercise: Identifiable, Codable {
     let id = UUID()
     let name: String
     let description: String?
+    let exerciseType: ExerciseType 
     let targetMuscleGroups: [MuscleGroup]
     let sets: Int?
     let reps: Int?
@@ -295,7 +296,7 @@ struct WorkoutExercise: Identifiable, Codable {
     let imageURL: String?
     let videoURL: String?
     let caloriesPerMinute: Double?
-    let exerciseIcon: String  // Added proper icon for each exercise
+    let exerciseIcon: String  
     
     // Computed properties for UI
     var formattedDuration: String? {
@@ -314,6 +315,111 @@ struct WorkoutExercise: Identifiable, Codable {
             return "\(Int(distance))m"
         } else {
             return "Complete exercise"
+        }
+    }
+    
+    /// Determines if exercise is time-based (e.g. plank, cardio) vs rep-based (e.g. pushups)
+    var isTimeBasedExercise: Bool {
+        // If duration is set and no reps/sets, it's time-based
+        return duration != nil && (reps == nil || sets == nil)
+    }
+    
+    /// Default initializer with exerciseType
+    init(
+        name: String,
+        description: String? = nil,
+        exerciseType: ExerciseType,
+        targetMuscleGroups: [MuscleGroup],
+        sets: Int? = nil,
+        reps: Int? = nil,
+        duration: TimeInterval? = nil,
+        restTime: TimeInterval? = nil,
+        weight: Double? = nil,
+        distance: Double? = nil,
+        instructions: [String] = [],
+        imageURL: String? = nil,
+        videoURL: String? = nil,
+        caloriesPerMinute: Double? = nil,
+        exerciseIcon: String? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.exerciseType = exerciseType
+        self.targetMuscleGroups = targetMuscleGroups
+        self.sets = sets
+        self.reps = reps
+        self.duration = duration
+        self.restTime = restTime
+        self.weight = weight
+        self.distance = distance
+        self.instructions = instructions
+        self.imageURL = imageURL
+        self.videoURL = videoURL
+        self.caloriesPerMinute = caloriesPerMinute
+        self.exerciseIcon = exerciseIcon ?? exerciseType.defaultIcon
+    }
+}
+
+// MARK: - Exercise Type Enum
+enum ExerciseType: String, Codable, CaseIterable {
+    case strength = "strength"
+    case cardio = "cardio"
+    case flexibility = "flexibility"
+    case balance = "balance"
+    case plyometric = "plyometric"
+    case endurance = "endurance"
+    case warmup = "warmup"
+    case cooldown = "cooldown"
+    
+    var displayName: String {
+        switch self {
+        case .strength: return "Strength"
+        case .cardio: return "Cardio"
+        case .flexibility: return "Flexibility"
+        case .balance: return "Balance"
+        case .plyometric: return "Plyometric"
+        case .endurance: return "Endurance"
+        case .warmup: return "Warm Up"
+        case .cooldown: return "Cool Down"
+        }
+    }
+    
+    var defaultIcon: String {
+        switch self {
+        case .strength: return "dumbbell.fill"
+        case .cardio: return "heart.fill"
+        case .flexibility: return "figure.flexibility"
+        case .balance: return "figure.yoga"
+        case .plyometric: return "flame.fill"
+        case .endurance: return "figure.run"
+        case .warmup: return "thermometer.sun.fill"
+        case .cooldown: return "snowflake"
+        }
+    }
+    
+    var primaryColor: String {
+        switch self {
+        case .strength: return "#4A90E2"     // Blue
+        case .cardio: return "#E74C3C"       // Red
+        case .flexibility: return "#9B59B6"  // Purple
+        case .balance: return "#1ABC9C"      // Teal
+        case .plyometric: return "#F39C12"   // Orange
+        case .endurance: return "#2ECC71"    // Green
+        case .warmup: return "#FF6B35"       // Orange-Red
+        case .cooldown: return "#3498DB"     // Light Blue
+        }
+    }
+    
+    var secondaryColor: String {
+        switch self {
+        case .strength: return "#6AB7FF"
+        case .cardio: return "#EC7063"
+        case .flexibility: return "#BB6BD9"
+        case .balance: return "#48C9B0"
+        case .plyometric: return "#F7DC6F"
+        case .endurance: return "#58D68D"
+        case .warmup: return "#FF8E53"
+        case .cooldown: return "#5DADE2"
         }
     }
 }
@@ -439,4 +545,53 @@ struct WorkoutRecommendation: Identifiable, Codable {
             }
         }
     }
+}
+
+// MARK: - Mock Data for Previews and Testing
+
+extension WorkoutSession {
+    static let mockData: [WorkoutSession] = [
+        WorkoutSession(
+            userId: "mock-user",
+            workoutType: .hiit,
+            name: "Morning HIIT Blast",
+            description: "High-intensity interval training to kickstart your day",
+            estimatedDuration: 1200, // 20 minutes
+            estimatedCalories: 280,
+            difficulty: .intermediate,
+            targetMuscleGroups: [.fullBody, .cardio],
+            exercises: [
+                WorkoutExercise(
+                    name: "Jumping Jacks",
+                    description: "Full-body cardio exercise",
+                    exerciseType: .cardio,
+                    targetMuscleGroups: [.fullBody, .cardio],
+                    duration: 30,
+                    instructions: ["Stand with feet together", "Jump while spreading legs and raising arms", "Return to starting position"],
+                    exerciseIcon: "figure.jumper"
+                ),
+                WorkoutExercise(
+                    name: "Push-ups",
+                    description: "Upper body strength exercise",
+                    exerciseType: .strength,
+                    targetMuscleGroups: [.chest, .arms],
+                    sets: 3,
+                    reps: 10,
+                    instructions: ["Start in plank position", "Lower chest to ground", "Push back up"],
+                    exerciseIcon: "figure.strengthtraining.traditional"
+                ),
+                WorkoutExercise(
+                    name: "Mountain Climbers",
+                    description: "Core and cardio exercise",
+                    exerciseType: .cardio,
+                    targetMuscleGroups: [.abs, .cardio],
+                    duration: 45,
+                    instructions: 
+                        ["Start in plank position", "Bring one knee up towards chest", "Quickly switch legs"]
+                ),
+            ],
+            imageURL: nil,
+            videoPreviewURL: nil
+        ),
+    ]
 }

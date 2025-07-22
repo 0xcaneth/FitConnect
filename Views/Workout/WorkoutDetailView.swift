@@ -6,6 +6,8 @@ struct WorkoutDetailView: View {
     let onStartWorkout: () -> Void
     @Environment(\.dismiss) private var dismiss
     
+    @State private var showWorkoutExecution = false
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -46,6 +48,21 @@ struct WorkoutDetailView: View {
             .overlay(alignment: .bottom) {
                 startButton
                     .padding(20)
+            }
+            .fullScreenCover(isPresented: $showWorkoutExecution) {
+                WorkoutExecutionView(
+                    workout: workout,
+                    onWorkoutComplete: { completionData in
+                        // Handle workout completion
+                        handleWorkoutCompletion(completionData)
+                        showWorkoutExecution = false
+                        dismiss()
+                    },
+                    onDismiss: {
+                        // User exited without completing
+                        showWorkoutExecution = false
+                    }
+                )
             }
         }
     }
@@ -180,7 +197,10 @@ struct WorkoutDetailView: View {
     
     @ViewBuilder
     private var startButton: some View {
-        Button(action: onStartWorkout) {
+        Button(action: {
+            print("[WorkoutDetail] 🚀 Starting workout execution")
+            showWorkoutExecution = true
+        }) {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 18, weight: .bold))
@@ -204,5 +224,35 @@ struct WorkoutDetailView: View {
             .cornerRadius(16)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleWorkoutCompletion(_ completionData: WorkoutCompletionData) {
+        print("[WorkoutDetail] 🎉 Workout completed! Saving to Firebase...")
+        
+        // Save workout completion to Firebase
+        Task {
+            let workoutService = WorkoutService.shared
+            let result = await workoutService.completeWorkout(
+                workoutId: completionData.workoutId ?? workout.id ?? UUID().uuidString,
+                actualDuration: completionData.totalDuration,
+                actualCalories: completionData.totalCaloriesBurned,
+                rating: completionData.userRating
+            )
+            
+            switch result {
+            case .success():
+                print("[WorkoutDetail] ✅ Workout completion saved successfully")
+                
+                // Call the original callback
+                onStartWorkout()
+                
+            case .failure(let error):
+                print("[WorkoutDetail] ❌ Failed to save workout completion: \(error)")
+                // Still call callback
+                onStartWorkout()
+            }
+        }
     }
 }

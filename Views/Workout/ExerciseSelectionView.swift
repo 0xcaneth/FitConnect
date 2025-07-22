@@ -143,6 +143,8 @@ struct ExerciseSelectionView: View {
     @State private var showingExerciseDetail = false
     @State private var selectedExercise: WorkoutExercise?
     @State private var showCustomWorkoutBuilder = false
+    @State private var showWorkoutExecution = false
+    @State private var builtWorkout: [WorkoutExercise] = []
     
     // Animation states
     @State private var showContent = false
@@ -210,8 +212,31 @@ struct ExerciseSelectionView: View {
                 },
                 workoutType: workoutType
             ) { customWorkout in
-                onExercisesSelected(customWorkout)
-                showExerciseSelection = false
+                print("[ExerciseSelection] 🏗️ Custom workout built with \(customWorkout.count) exercises")
+                builtWorkout = customWorkout
+                showCustomWorkoutBuilder = false
+                
+                // Start workout execution immediately
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showWorkoutExecution = true
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showWorkoutExecution) {
+            if !builtWorkout.isEmpty {
+                WorkoutExecutionView(
+                    workout: createWorkoutSession(from: builtWorkout),
+                    onWorkoutComplete: { completionData in
+                        // Handle workout completion - save to Firebase
+                        handleWorkoutCompletion(completionData)
+                        showWorkoutExecution = false
+                        showExerciseSelection = false
+                    },
+                    onDismiss: {
+                        // User exited without saving
+                        showWorkoutExecution = false
+                    }
+                )
             }
         }
     }
@@ -552,6 +577,63 @@ struct ExerciseSelectionView: View {
             
         case .dismiss:
             showingExerciseDetail = false
+        }
+    }
+    
+    // MARK: - NEW Helper Methods for Workout Execution
+    
+    private func createWorkoutSession(from exercises: [WorkoutExercise]) -> WorkoutSession {
+        let estimatedDuration = exercises.reduce(0) { total, exercise in
+            if exercise.isTimeBasedExercise {
+                return total + (exercise.duration ?? 30)
+            } else {
+                let setsTime = TimeInterval((exercise.sets ?? 3) * (exercise.reps ?? 10) * 3) // 3 seconds per rep
+                let restTime = TimeInterval((exercise.sets ?? 3) * 15) // 15 seconds rest between sets
+                return total + setsTime + restTime
+            }
+        }
+        
+        let estimatedCalories = Int(estimatedDuration / 60 * 8) // 8 calories per minute average
+        
+        return WorkoutSession(
+            userId: "", // Will be set by WorkoutService
+            workoutType: workoutType,
+            name: "\(workoutType.displayName) Workout",
+            description: "Custom workout with \(exercises.count) exercises",
+            estimatedDuration: estimatedDuration,
+            estimatedCalories: estimatedCalories,
+            difficulty: .intermediate, // Could be calculated based on exercises
+            targetMuscleGroups: Array(Set(exercises.flatMap { $0.targetMuscleGroups })),
+            exercises: exercises,
+            imageURL: nil
+        )
+    }
+    
+    private func handleWorkoutCompletion(_ completionData: WorkoutCompletionData) {
+        print("[ExerciseSelection] 🎉 Workout completed! Duration: \(Int(completionData.totalDuration/60)) min, Calories: \(completionData.totalCaloriesBurned)")
+        
+        // Save to Firebase via WorkoutService
+        Task {
+            let workoutService = WorkoutService.shared
+            let result = await workoutService.completeWorkout(
+                workoutId: completionData.workoutId ?? UUID().uuidString,
+                actualDuration: completionData.totalDuration,
+                actualCalories: completionData.totalCaloriesBurned,
+                rating: completionData.userRating
+            )
+            
+            switch result {
+            case .success():
+                print("[ExerciseSelection] ✅ Workout data saved successfully")
+                
+                // Call the original callback to close all sheets
+                onExercisesSelected([]) // Empty array since workout is already completed
+                
+            case .failure(let error):
+                print("[ExerciseSelection] ❌ Failed to save workout: \(error)")
+                // Still call callback to close sheets
+                onExercisesSelected([])
+            }
         }
     }
 }

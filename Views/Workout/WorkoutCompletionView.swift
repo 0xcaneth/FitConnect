@@ -674,15 +674,52 @@ struct WorkoutAchievement: Identifiable {
 @available(iOS 16.0, *)
 struct WorkoutCompletionView_Previews: PreviewProvider {
     static var previews: some View {
+        // Create a sample workout session for preview only
+        let sampleWorkout = WorkoutSession(
+            userId: "preview-user",
+            workoutType: .hiit,
+            name: "Morning HIIT",
+            description: "Sample workout for preview",
+            estimatedDuration: 1200,
+            estimatedCalories: 250,
+            difficulty: .intermediate,
+            targetMuscleGroups: [.fullBody],
+            exercises: [
+                WorkoutExercise(
+                    name: "Jumping Jacks",
+                    exerciseType: .cardio,
+                    targetMuscleGroups: [.fullBody],
+                    duration: 30,
+                    instructions: ["Jump with arms and legs"],
+                    exerciseIcon: "figure.jumper"
+                )
+            ]
+        )
+        
+        let sampleCompletionData = WorkoutCompletionData(
+            workoutId: "preview-id",
+            workoutName: "Morning HIIT",
+            workoutType: .hiit,
+            startTime: Date().addingTimeInterval(-1200),
+            endTime: Date(),
+            totalDuration: 1200,
+            totalCaloriesBurned: 250,
+            completedExercises: [
+                CompletedExercise(
+                    exercise: sampleWorkout.exercises.first!,
+                    setsCompleted: 1,
+                    repsPerSet: [],
+                    duration: 30,
+                    caloriesBurned: 50
+                )
+            ],
+            isFullyCompleted: true,
+            userRating: nil
+        )
+        
         WorkoutCompletionView(
-            completionData: WorkoutCompletionData(
-                workoutName: "Morning HIIT",
-                workoutType: .hiit,
-                totalDuration: 1200, // 20 minutes
-                totalCaloriesBurned: 250,
-                isFullyCompleted: true
-            ),
-            workout: WorkoutSession.mockData.first!,
+            completionData: sampleCompletionData,
+            workout: sampleWorkout,
             onDone: {},
             onShareWorkout: {}
         )

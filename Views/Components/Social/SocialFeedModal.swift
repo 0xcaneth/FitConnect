@@ -168,7 +168,7 @@ struct SocialFeedModal: View {
                         .padding(.top, 50)
                 } else {
                     ForEach(socialService.friendActivities, id: \.id) { activity in
-                        SocialActivityCard(activity: activity)
+                        SocialActivityCard(activity: activity, isGlobal: false)
                             .padding(.horizontal, 20)
                     }
                 }

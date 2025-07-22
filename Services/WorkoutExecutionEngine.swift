@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import UIKit
 
 /// Real-time workout execution engine
 /// Manages workout state, timers, and progress tracking
@@ -80,7 +81,12 @@ final class WorkoutExecutionEngine: ObservableObject {
             workoutName: workout.name,
             workoutType: workout.workoutType,
             startTime: Date(),
-            exercises: []
+            endTime: nil,
+            totalDuration: 0,
+            totalCaloriesBurned: 0,
+            completedExercises: [],
+            isFullyCompleted: false,
+            userRating: nil
         )
         
         print("[WorkoutEngine] ✅ Workout initialized with \(exercises.count) exercises")
@@ -332,7 +338,8 @@ final class WorkoutExecutionEngine: ObservableObject {
         case .balance: 4.0
         case .plyometric: 15.0
         case .endurance: 10.0
-        default: 6.0
+        case .warmup: 5.0
+        case .cooldown: 4.0
         }
         
         let duration = Date().timeIntervalSince(exerciseStartTime ?? Date()) / 60.0 // minutes
@@ -374,6 +381,35 @@ struct WorkoutCompletionData: Codable {
     var completionPercentage: Double {
         // This would be calculated based on exercises completed vs total
         return isFullyCompleted ? 1.0 : 0.5
+    }
+    
+    // MARK: - Custom Initializers
+    init() {
+        // Default initializer
+    }
+    
+    init(
+        workoutId: String? = nil,
+        workoutName: String = "",
+        workoutType: WorkoutType = .cardio,
+        startTime: Date = Date(),
+        endTime: Date? = nil,
+        totalDuration: TimeInterval = 0,
+        totalCaloriesBurned: Int = 0,
+        completedExercises: [CompletedExercise] = [],
+        isFullyCompleted: Bool = false,
+        userRating: Int? = nil
+    ) {
+        self.workoutId = workoutId
+        self.workoutName = workoutName
+        self.workoutType = workoutType
+        self.startTime = startTime
+        self.endTime = endTime
+        self.totalDuration = totalDuration
+        self.totalCaloriesBurned = totalCaloriesBurned
+        self.completedExercises = completedExercises
+        self.isFullyCompleted = isFullyCompleted
+        self.userRating = userRating
     }
 }
 
@@ -465,13 +501,44 @@ final class MotivationEngine: ObservableObject {
                 "Gentle progress is still progress! 🌱"
             ]
             
-        default:
+        case .balance:
             return [
-                "You're doing incredible! 🌟",
-                "Keep pushing forward! 🚀",
-                "Your dedication is inspiring! ✨",
-                "Every movement counts! 💫",
-                "You're stronger than you know! 💪"
+                "Find your center! 🎯",
+                "Balance builds core strength! 💪",
+                "Steady wins the race! 🐢",
+                "You're more stable than you know! 🗿"
+            ]
+            
+        case .plyometric:
+            return [
+                "Explosive power! 💥",
+                "Jump higher, land stronger! 🚀",
+                "Athletic power building! ⚡",
+                "Every jump builds athleticism! 🏃‍♂️"
+            ]
+            
+        case .endurance:
+            return [
+                "Building unstoppable endurance! 🏃‍♂️",
+                "Mile by mile, you're getting stronger! 🛤️",
+                "Endurance is mental strength! 🧠",
+                "You can go the distance! 🎯"
+            ]
+            
+        case .warmup:
+            return [
+                "Perfect warm-up sets you up for success! 🌅",
+                "Get those muscles ready! 🔥",
+                "Smart training starts with warmup! 🧠",
+                "Preparing for greatness! ✨"
+            ]
+            
+        case .cooldown:
+            return [
+                "Great job! Time to recover right! 😌",
+                "Cool down helps you come back stronger! 💪",
+                "Recovery is part of the workout! 🛁",
+                "Perfect way to finish strong! ✅"
             ]
         }
     }
