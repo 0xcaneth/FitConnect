@@ -8,13 +8,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         print("🔧 AppDelegate configuring...")
         
-        // Firebase is now configured in FitConnectApp.init() BEFORE this runs
-        // So we don't need to configure it again here
-        if FirebaseApp.app() == nil {
-            print("⚠️ Firebase not configured yet, configuring now...")
-            FirebaseApp.configure()
+        // Firebase is configured in FitConnectApp.init() BEFORE this runs
+        // We just verify it's configured and proceed with other setup
+        if FirebaseApp.app() != nil {
+            print("✅ Firebase already configured by FitConnectApp")
         } else {
-            print("ℹ️ Firebase already configured by FitConnectApp")
+            print("⚠️ Firebase not configured yet - this should not happen")
+            // Emergency fallback - configure Firebase here
+            FirebaseApp.configure()
         }
         
         // Configure app settings

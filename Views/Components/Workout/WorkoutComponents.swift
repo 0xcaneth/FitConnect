@@ -17,7 +17,7 @@ struct WorkoutCard: View {
             onTap()
         }) {
             ZStack {
-                // Background with gradient
+                // Background gradient (removing imageURL support)
                 RoundedRectangle(cornerRadius: 20)
                     .fill(
                         LinearGradient(
@@ -29,16 +29,32 @@ struct WorkoutCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
+                    .frame(height: 200)
+                
+                // Dark overlay for text readability
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.6),
+                                Color.black.opacity(0.3)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                 
                 // Glassmorphism overlay
                 RoundedRectangle(cornerRadius: 20)
                     .fill(.ultraThinMaterial)
-                    .opacity(0.8)
+                    .opacity(0.2)
                 
                 // Content
                 VStack(alignment: .leading, spacing: 0) {
                     // Header with image and badges
                     headerSection
+                    
+                    Spacer()
                     
                     // Content
                     contentSection
@@ -50,6 +66,8 @@ struct WorkoutCard: View {
             }
         }
         .buttonStyle(WorkoutCardButtonStyle())
+        .frame(height: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .shadow(
             color: Color(hex: workout.workoutType.primaryColor).opacity(0.2),
@@ -202,10 +220,11 @@ struct WorkoutCard: View {
                 
                 Text("START")
                     .font(.system(size: 12, weight: .bold))
+                    .fixedSize()
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
                     .fill(Color(hex: workout.workoutType.primaryColor))
@@ -354,7 +373,7 @@ struct WorkoutQuickActionButton: View {
             onTap()
         }) {
             VStack(spacing: 8) {
-                // Icon container
+                // Icon container - restored to original gradient design
                 ZStack {
                     Circle()
                         .fill(

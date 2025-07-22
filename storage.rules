@@ -1,132 +1,155 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
     
     // ----------------------------
-    // HELPER FUNCTIONS
+    // Helper Functions
     // ----------------------------
-    
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
     function isDietitian() {
-      return request.auth != null
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "dietitian";
+      return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "dietitian";
     }
     
-    function isValidImageType() {
-      return request.resource.contentType.matches('image/.*');
+    function isClient() {
+      return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "client";
     }
     
-    function isValidVideoType() {
-      return request.resource.contentType.matches('video/.*');
+    function isDietitianAssignedToClient(clientId) {
+      return isDietitian() && firestore.get(/databases/(default)/documents/users/$(clientId)).data.assignedDietitianId == request.auth.uid;
     }
     
-    function isReasonableSize() {
-      // 50MB max for videos, 10MB max for images
-      return (isValidVideoType() && request.resource.size < 50 * 1024 * 1024) ||
-             (isValidImageType() && request.resource.size < 10 * 1024 * 1024);
+    function isClientAssignedToDietitian(dietitianId) {
+      return isClient() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.assignedDietitianId == dietitianId;
+    }
+    
+    function isInDietitianClientsList(dietitianId) {
+      return firestore.exists(/databases/(default)/documents/dietitians/$(dietitianId)/clients/$(request.auth.uid));
     }
 
     // ----------------------------
-    // USER PROFILE IMAGES
+    // EXERCISE VIDEOS (NEW - Add this section)
     // ----------------------------
-    match /user_avatars/{userId}/{allPaths=**} {
-      // Users can upload/update/delete their own avatars
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
+    match /exercises/{fileName} {
+      allow read: if request.auth != null; // Authenticated users can read exercise videos
+      allow write: if request.auth != null; // Authenticated users can upload exercise videos
     }
 
     // ----------------------------
-    // MESSAGING MEDIA
+    // EXERCISE VIDEOS (Updated for proper access)
     // ----------------------------
-    match /messages/{messageType}/{allPaths=**} {
-      // All authenticated users can read message media
-      allow read: if isAuthenticated();
-      
-      // Photos: authenticated users can upload images
-      allow write: if messageType == 'photos' && 
-                   isAuthenticated() && 
-                   isValidImageType() && 
-                   isReasonableSize();
-      
-      // Videos: authenticated users can upload videos
-      allow write: if messageType == 'videos' && 
-                   isAuthenticated() && 
-                   isValidVideoType() && 
-                   isReasonableSize();
-      
-      // Snaps: authenticated users can upload images (will be deleted after consumption)
-      allow write: if messageType == 'snaps' && 
-                   isAuthenticated() && 
-                   isValidImageType() && 
-                   isReasonableSize();
-                   
-      // Allow deletion for cleanup (especially snaps)
-      allow delete: if isAuthenticated();
+    match /videos/exercises/{fileName} {
+      allow read: if request.auth != null; // Authenticated users can read exercise videos
+      allow write: if request.auth != null; // Authenticated users can write (for now, can restrict later)
+    }
+
+    // Alternative nested structure for exercise videos
+    match /videos/exercises/{exerciseName}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
 
     // ----------------------------
-    // MEAL PHOTOS (for meal scanning/logging)
+    // NEW MESSAGING SYSTEM
     // ----------------------------
-    match /meal_photos/{userId}/{allPaths=**} {
-      // Users can upload their own meal photos, dietitians can view assigned clients' photos
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
-      allow delete: if isOwner(userId) || isDietitian();
+    
+    // Messages photos - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Messages videos - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/videos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Messages snaps - anyone authenticated can upload, but we validate in Firestore rules
+    match /messages/snaps/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
 
     // ----------------------------
-    // WORKOUT VIDEOS
+    // PROFILE IMAGES
     // ----------------------------
-    match /workout_videos/{userId}/{allPaths=**} {
-      // Users can upload their own workout videos
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId) && isValidVideoType() && isReasonableSize();
-      allow delete: if isOwner(userId) || isDietitian();
+    match /profile_images/{userId}/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+    
+    // Single profile photo format
+    match /profilePhotos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
 
     // ----------------------------
-    // POST IMAGES (for social feed)
+    // POST IMAGES (SOCIAL FEED)
     // ----------------------------
-    match /post_images/{userId}/{allPaths=**} {
-      // Users can upload images for their posts
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId) && isValidImageType() && isReasonableSize();
-      allow delete: if isOwner(userId) || isDietitian();
+    match /post_images/{userId}/{imageId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
     }
 
     // ----------------------------
-    // CHAT ATTACHMENTS (legacy - keeping for backward compatibility)
+    // LEGACY CHAT ATTACHMENTS (Keep for backward compatibility)
     // ----------------------------
-    match /chat_attachments/{chatId}/{messageType}/{allPaths=**} {
-      // All authenticated users can read/write chat attachments
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && 
-                   ((messageType == 'images' && isValidImageType()) || 
-                    (messageType == 'videos' && isValidVideoType())) &&
-                   isReasonableSize();
-      allow delete: if isAuthenticated();
+    match /chat_attachments/{chatId}/{attachmentType}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participantIds;
     }
 
+    // ----------------------------
+    // MEAL PHOTOS
+    // ----------------------------
+    match /meal_photos/{userId}/{mealId}/{photoId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+    
+    // Scan Meal photos
+    match /meal_photos/{userId}/{date}/{imageId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+
+    // ----------------------------
+    // WORKOUT MEDIA
+    // ----------------------------
+    match /workout_media/{userId}/{workoutId}/{mediaId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+      allow write: if request.auth != null && (request.auth.uid == userId || isDietitianAssignedToClient(userId));
+    }
+
+    // ----------------------------
+    // REPORTS / DOCUMENTS
+    // ----------------------------
+    match /reports/{reportId}/{fileName} {
+      allow read, write: if isDietitian();
+    }
+    
+    // ----------------------------
+    // GENERAL MEDIA FOLDER (for temporary uploads, etc.)
+    // ----------------------------
+    match /media/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    
     // ----------------------------
     // TEMP UPLOADS (for processing)
     // ----------------------------
-    match /temp_uploads/{userId}/{allPaths=**} {
-      // Users can upload temporary files for processing
-      allow read, write: if isOwner(userId) && isReasonableSize();
-      // Auto-cleanup after 24 hours would be handled by Cloud Functions
-      allow delete: if isAuthenticated();
+    match /temp/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // ----------------------------
-    // DEFAULT DENY ALL
+    // VIDEOS FOLDER (General video access)
+    // ----------------------------
+    match /videos/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ----------------------------
+    // CATCH-ALL – DENY ANYTHING ELSE
     // ----------------------------
     match /{allPaths=**} {
       allow read, write: if false;

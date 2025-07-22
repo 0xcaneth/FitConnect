@@ -19,6 +19,7 @@ final class SessionStore: ObservableObject {
   
   private var authStateListener: AuthStateDidChangeListenerHandle?
   private var notificationListener: ListenerRegistration?
+  private var isFirebaseReady = false
 
   var isAuthenticated: Bool {
     return currentUserId != nil && isLoggedIn
@@ -47,16 +48,32 @@ final class SessionStore: ObservableObject {
   init() {
     print("[SessionStore] Initializing SessionStore...")
     
-    // CRITICAL: Ensure Firebase is configured before accessing Auth
+    // Defensive Firebase check with retry mechanism
+    checkFirebaseReadinessAndSetupAuth()
+  }
+  
+  private func checkFirebaseReadinessAndSetupAuth() {
+    // Check if Firebase is configured
     guard FirebaseApp.app() != nil else {
-      print("[SessionStore] FATAL: Firebase not configured!")
-      fatalError("Firebase must be configured before SessionStore initialization")
+      print("[SessionStore] Firebase not yet configured, will retry...")
+      // Retry after a short delay
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+        self?.checkFirebaseReadinessAndSetupAuth()
+      }
+      return
     }
     
+    print("[SessionStore] Firebase is ready, setting up auth listener...")
+    isFirebaseReady = true
     setupAuthStateListener()
   }
 
   private func setupAuthStateListener() {
+    guard isFirebaseReady else {
+      print("[SessionStore] Cannot setup auth listener - Firebase not ready")
+      return
+    }
+    
     print("[SessionStore] Setting up auth state listener...")
     
     // IMPORTANT: Remove existing listener first if it exists
@@ -66,38 +83,40 @@ final class SessionStore: ObservableObject {
         print("[SessionStore] Removed existing auth state listener")
     }
     
-    // Wait a tiny bit to ensure Firebase is fully ready
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-      guard let self = self else { return }
-      
-      do {
-        self.authStateListener = Auth.auth().addStateDidChangeListener { [weak self] auth, firebaseAuthUser in
-          guard let self = self else { return }
-          
-          DispatchQueue.main.async {
-            self.isInitializing = false
-            
-            if let fbUser = firebaseAuthUser {
-              print("[SessionStore] Auth state changed: User signed in (\(fbUser.uid))")
-              self.handleAuthenticatedUser(fbUser)
-            } else {
-              print("[SessionStore] Auth state changed: No authenticated user")
-              self.resetSession()
-            }
-          }
-        }
-        print("[SessionStore] Auth state listener configured successfully")
-      } catch {
-        print("[SessionStore] Failed to setup auth listener: \(error)")
+    // Setup auth listener with error handling
+    do {
+      self.authStateListener = Auth.auth().addStateDidChangeListener { [weak self] auth, firebaseAuthUser in
+        guard let self = self else { return }
+        
         DispatchQueue.main.async {
           self.isInitializing = false
-          self.resetSession()
+          
+          if let fbUser = firebaseAuthUser {
+            print("[SessionStore] Auth state changed: User signed in (\(fbUser.uid))")
+            self.handleAuthenticatedUser(fbUser)
+          } else {
+            print("[SessionStore] Auth state changed: No authenticated user")
+            self.resetSession()
+          }
         }
+      }
+      print("[SessionStore] Auth state listener configured successfully")
+    } catch let error {
+      print("[SessionStore] Failed to setup auth listener: \(error.localizedDescription)")
+      DispatchQueue.main.async {
+        self.isInitializing = false
+        self.globalError = "Authentication setup failed. Please restart the app."
+        self.resetSession()
       }
     }
   }
   
   private func handleAuthenticatedUser(_ firebaseUser: User) {
+    guard isFirebaseReady else {
+      print("[SessionStore] Cannot handle authenticated user - Firebase not ready")
+      return
+    }
+    
     let uid = firebaseUser.uid
     print("[SessionStore] Authenticated user: \(uid), email verified: \(firebaseUser.isEmailVerified)")
     
@@ -112,8 +131,6 @@ final class SessionStore: ObservableObject {
         isEmailVerified: firebaseUser.isEmailVerified,
         createdAt: Timestamp(date: firebaseUser.metadata.creationDate ?? Date())
     )
-    
-    // CRITICAL: Remove premature updateData call - wait until user is fetched
     
     // Fetch complete user data from Firestore with retry logic
     fetchUserFromFirestore(uid: uid, fallbackUser: basicUser) { [weak self] user in
@@ -146,6 +163,14 @@ final class SessionStore: ObservableObject {
   }
   
   private func fetchUserFromFirestore(uid: String, fallbackUser: FitConnectUser, completion: @escaping (FitConnectUser) -> Void) {
+    guard isFirebaseReady else {
+      print("[SessionStore] Cannot fetch user - Firebase not ready, using fallback")
+      var fallback = fallbackUser
+      fallback.role = "client"
+      completion(fallback)
+      return
+    }
+    
     let db = Firestore.firestore()
     
     // Retry logic for handling signup race conditions
@@ -268,7 +293,10 @@ final class SessionStore: ObservableObject {
   }
 
   func updateLastOnline() {
-    guard let uid = currentUserId, !uid.isEmpty else { return }
+    guard let uid = currentUserId, !uid.isEmpty, isFirebaseReady else { 
+      print("[SessionStore] Cannot update lastOnline - user ID or Firebase not ready")
+      return 
+    }
     
     let userRef = Firestore.firestore().collection("users").document(uid)
     userRef.updateData(["lastOnline": FieldValue.serverTimestamp()]) { error in
@@ -281,8 +309,8 @@ final class SessionStore: ObservableObject {
   }
 
   func setupNotificationListener() {
-      guard let userId = self.currentUserId, !userId.isEmpty else {
-          print("[SessionStore] Cannot setup notification listener: userId is nil or empty.")
+      guard let userId = self.currentUserId, !userId.isEmpty, isFirebaseReady else {
+          print("[SessionStore] Cannot setup notification listener: userId is nil/empty or Firebase not ready.")
           return
       }
       

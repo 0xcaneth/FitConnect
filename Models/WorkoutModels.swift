@@ -24,6 +24,11 @@ struct WorkoutSession: Identifiable, Codable {
     let userRating: Int? // 1-5 stars
     let createdAt: Date
     var updatedAt: Date
+    
+    // MARK: - Computed ID for UI Safety
+    var safeId: String {
+        return id ?? UUID().uuidString
+    }
 
     init(
         userId: String,
@@ -38,6 +43,8 @@ struct WorkoutSession: Identifiable, Codable {
         imageURL: String? = nil,
         videoPreviewURL: String? = nil
     ) {
+        // CRITICAL: Generate ID for UI stability
+        self.id = UUID().uuidString
         self.userId = userId
         self.workoutType = workoutType
         self.name = name
@@ -57,6 +64,63 @@ struct WorkoutSession: Identifiable, Codable {
         self.createdAt = Date()
         self.updatedAt = Date()
     }
+    
+    // MARK: - Custom Decoding for Firebase Robustness
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Ensure ID is never nil for UI stability
+        if let decodedId = try container.decodeIfPresent(String.self, forKey: .id), !decodedId.isEmpty {
+            self.id = decodedId
+        } else {
+            self.id = UUID().uuidString
+            print("[WorkoutSession] ⚠️ Generated safe ID for workout: \(try container.decodeIfPresent(String.self, forKey: .name) ?? "Unknown")")
+        }
+        
+        // Robust field decoding
+        self.userId = (try? container.decode(String.self, forKey: .userId)) ?? ""
+        self.workoutType = (try? container.decode(WorkoutType.self, forKey: .workoutType)) ?? .cardio
+        self.name = (try? container.decode(String.self, forKey: .name)) ?? "Unknown Workout"
+        self.description = try? container.decodeIfPresent(String.self, forKey: .description)
+        self.estimatedDuration = (try? container.decode(TimeInterval.self, forKey: .estimatedDuration)) ?? 1800 // 30 min default
+        self.estimatedCalories = (try? container.decode(Int.self, forKey: .estimatedCalories)) ?? 200
+        self.difficulty = (try? container.decode(DifficultyLevel.self, forKey: .difficulty)) ?? .beginner
+        self.targetMuscleGroups = (try? container.decode([MuscleGroup].self, forKey: .targetMuscleGroups)) ?? []
+        self.exercises = (try? container.decode([WorkoutExercise].self, forKey: .exercises)) ?? []
+        self.imageURL = try? container.decodeIfPresent(String.self, forKey: .imageURL)
+        self.videoPreviewURL = try? container.decodeIfPresent(String.self, forKey: .videoPreviewURL)
+        self.isCompleted = (try? container.decode(Bool.self, forKey: .isCompleted)) ?? false
+        self.completedAt = try? container.decodeIfPresent(Date.self, forKey: .completedAt)
+        self.actualDuration = try? container.decodeIfPresent(TimeInterval.self, forKey: .actualDuration)
+        self.actualCalories = try? container.decodeIfPresent(Int.self, forKey: .actualCalories)
+        self.userRating = try? container.decodeIfPresent(Int.self, forKey: .userRating)
+        self.createdAt = (try? container.decode(Date.self, forKey: .createdAt)) ?? Date()
+        self.updatedAt = (try? container.decode(Date.self, forKey: .updatedAt)) ?? Date()
+        
+        print("[WorkoutSession] ✅ Safely decoded: \(name) with ID: \(self.id ?? "nil")")
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case userId
+        case workoutType
+        case name
+        case description
+        case estimatedDuration
+        case estimatedCalories
+        case difficulty
+        case targetMuscleGroups
+        case exercises
+        case imageURL
+        case videoPreviewURL
+        case isCompleted
+        case completedAt
+        case actualDuration
+        case actualCalories
+        case userRating
+        case createdAt
+        case updatedAt
+    }
 }
 
 /// Workout categories with enhanced properties
@@ -68,9 +132,7 @@ enum WorkoutType: String, Codable, CaseIterable {
     case pilates = "pilates"
     case dance = "dance"
     case stretching = "stretching"
-    case boxing = "boxing"
     case running = "running"
-    case cycling = "cycling"
     
     var displayName: String {
         switch self {
@@ -81,9 +143,7 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .pilates: return "Pilates"
         case .dance: return "Dance"
         case .stretching: return "Stretching"
-        case .boxing: return "Boxing"
         case .running: return "Running"
-        case .cycling: return "Cycling"
         }
     }
     
@@ -96,9 +156,20 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .pilates: return "figure.pilates"
         case .dance: return "music.note"
         case .stretching: return "figure.flexibility"
-        case .boxing: return "boxing.gloves"
         case .running: return "figure.run"
-        case .cycling: return "bicycle"
+        }
+    }
+    
+    var backgroundImageName: String {
+        switch self {
+        case .cardio: return "workout_cardio"
+        case .strength: return "workout_strength"
+        case .yoga: return "workout_yoga"
+        case .hiit: return "workout_hiit"
+        case .pilates: return "workout_pilates"
+        case .dance: return "workout_dance"
+        case .stretching: return "workout_stretching"
+        case .running: return "workout_running"
         }
     }
     
@@ -111,9 +182,7 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .pilates: return "#2ECC71"    // Green
         case .dance: return "#F39C12"      // Yellow-Orange
         case .stretching: return "#1ABC9C" // Teal
-        case .boxing: return "#34495E"     // Dark Gray
         case .running: return "#3498DB"    // Light Blue
-        case .cycling: return "#27AE60"    // Forest Green
         }
     }
     
@@ -126,9 +195,7 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .pilates: return "#58D68D"
         case .dance: return "#F7DC6F"
         case .stretching: return "#48C9B0"
-        case .boxing: return "#5D6D7E"
         case .running: return "#5DADE2"
-        case .cycling: return "#52C882"
         }
     }
 }
@@ -201,7 +268,7 @@ enum MuscleGroup: String, Codable, CaseIterable {
         case .chest: return "lungs.fill"
         case .back: return "figure.strengthtraining.traditional"
         case .shoulders: return "figure.arms.open"
-        case .arms: return "arm"
+        case .arms: return "figure.arms.open" // Düzeltildi - mevcut iOS icon
         case .abs: return "figure.core.training"
         case .legs: return "figure.walk"
         case .glutes: return "figure.squat"
@@ -228,6 +295,7 @@ struct WorkoutExercise: Identifiable, Codable {
     let imageURL: String?
     let videoURL: String?
     let caloriesPerMinute: Double?
+    let exerciseIcon: String  // Added proper icon for each exercise
     
     // Computed properties for UI
     var formattedDuration: String? {

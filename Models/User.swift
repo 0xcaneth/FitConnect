@@ -65,90 +65,80 @@ struct FitConnectUser: Identifiable, Codable {
     }
 
     init(from decoder: Decoder) throws {
+        print("[FitConnectUser] Starting robust decoding...")
+        
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // Initialize all required properties first
-        id = try container.decodeIfPresent(String.self, forKey: .id)
-        email = try container.decode(String.self, forKey: .email)
-        fullName = try container.decode(String.self, forKey: .fullName)
-        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
-        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        self.email = (try? container.decode(String.self, forKey: .email)) ?? ""
+        self.fullName = (try? container.decode(String.self, forKey: .fullName)) ?? ""
+        self.role = (try? container.decode(String.self, forKey: .role)) ?? "client"
         
-        do {
-            createdAt = try container.decode(Timestamp.self, forKey: .createdAt)
-        } catch {
-            print("[FitConnectUser] CreatedAt decode error: \(error)")
-            throw error
+        self.firstName = try container.decodeIfPresent(String.self, forKey: .firstName)?.nilIfEmpty
+        self.lastName = try container.decodeIfPresent(String.self, forKey: .lastName)?.nilIfEmpty
+        
+        if let bioRaw = try? container.decodeIfPresent(String.self, forKey: .bio) {
+            self.bio = bioRaw.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        } else {
+            self.bio = nil
         }
         
-        updatedAt = try container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
-        lastOnline = try container.decodeIfPresent(Timestamp.self, forKey: .lastOnline)
+        self.photoURL = try container.decodeIfPresent(String.self, forKey: .photoURL)?.nilIfEmpty
+        self.profileImageUrl = try container.decodeIfPresent(String.self, forKey: .profileImageUrl)?.nilIfEmpty
         
-        // Handle photoURL/profileImageUrl inconsistency
-        photoURL = try container.decodeIfPresent(String.self, forKey: .photoURL)
-        profileImageUrl = try container.decodeIfPresent(String.self, forKey: .profileImageUrl)
+        self.assignedDietitianId = try container.decodeIfPresent(String.self, forKey: .assignedDietitianId)?.nilIfEmpty
+        self.expertId = try container.decodeIfPresent(String.self, forKey: .expertId)?.nilIfEmpty
         
-        age = try container.decodeIfPresent(Int.self, forKey: .age)
+        self.gender = try container.decodeIfPresent(String.self, forKey: .gender)?.nilIfEmpty
+        self.fitnessGoal = try container.decodeIfPresent(String.self, forKey: .fitnessGoal)?.nilIfEmpty
+        self.activityLevel = try container.decodeIfPresent(String.self, forKey: .activityLevel)?.nilIfEmpty
         
-        // Handle weight as either Int or Double
+        self.createdAt = (try? container.decode(Timestamp.self, forKey: .createdAt)) ?? Timestamp(date: Date())
+        self.updatedAt = try? container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
+        self.lastOnline = try? container.decodeIfPresent(Timestamp.self, forKey: .lastOnline)
+        self.dateOfBirth = try? container.decodeIfPresent(Timestamp.self, forKey: .dateOfBirth)
+        self.lastLoginAt = try? container.decodeIfPresent(Timestamp.self, forKey: .lastLoginAt)
+        
+        self.age = try? container.decodeIfPresent(Int.self, forKey: .age)
+        self.xp = (try? container.decodeIfPresent(Int.self, forKey: .xp)) ?? 0
+        self.level = (try? container.decodeIfPresent(Int.self, forKey: .level)) ?? 1
+        
         if let weightInt = try? container.decodeIfPresent(Int.self, forKey: .weight) {
-            weight = Double(weightInt)
+            self.weight = Double(weightInt)
         } else {
-            weight = try container.decodeIfPresent(Double.self, forKey: .weight)
+            self.weight = try? container.decodeIfPresent(Double.self, forKey: .weight)
         }
         
-        // Handle height as either Int or Double  
         if let heightInt = try? container.decodeIfPresent(Int.self, forKey: .height) {
-            height = Double(heightInt)
+            self.height = Double(heightInt)
         } else {
-            height = try container.decodeIfPresent(Double.self, forKey: .height)
+            self.height = try? container.decodeIfPresent(Double.self, forKey: .height)
         }
         
-        dateOfBirth = try container.decodeIfPresent(Timestamp.self, forKey: .dateOfBirth)
-        
-        // Handle phoneNumber as either Int or String
         if let phoneInt = try? container.decodeIfPresent(Int.self, forKey: .phoneNumber) {
-            phoneNumber = phoneInt
+            self.phoneNumber = phoneInt
         } else if let phoneString = try? container.decodeIfPresent(String.self, forKey: .phoneNumber) {
-            phoneNumber = Int(phoneString)
+            self.phoneNumber = Int(phoneString)
         } else {
-            phoneNumber = nil
+            self.phoneNumber = nil
         }
         
-        gender = try container.decodeIfPresent(String.self, forKey: .gender)
-        fitnessGoal = try container.decodeIfPresent(String.self, forKey: .fitnessGoal)
-        activityLevel = try container.decodeIfPresent(String.self, forKey: .activityLevel)
-        subscription = try container.decodeIfPresent(SubscriptionStatus.self, forKey: .subscription)
-        xp = try container.decodeIfPresent(Int.self, forKey: .xp)
-        level = try container.decodeIfPresent(Int.self, forKey: .level)
-        
-        // Handle isEmailVerified as Int (0/1) from Firestore
         if let emailVerifiedInt = try? container.decodeIfPresent(Int.self, forKey: .isEmailVerified) {
-            isEmailVerified = emailVerifiedInt == 1
+            self.isEmailVerified = emailVerifiedInt == 1
         } else {
-            isEmailVerified = try container.decodeIfPresent(Bool.self, forKey: .isEmailVerified)
+            self.isEmailVerified = (try? container.decodeIfPresent(Bool.self, forKey: .isEmailVerified)) ?? false
         }
         
-        role = try container.decode(String.self, forKey: .role)
-        assignedDietitianId = try container.decodeIfPresent(String.self, forKey: .assignedDietitianId)
-        expertId = try container.decodeIfPresent(String.self, forKey: .expertId)
-        providerData = try container.decodeIfPresent([[String: String]].self, forKey: .providerData)
-        lastLoginAt = try container.decodeIfPresent(Timestamp.self, forKey: .lastLoginAt)
-        bio = try container.decodeIfPresent(String.self, forKey: .bio)
-        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate)
+        if let privateInt = try? container.decodeIfPresent(Int.self, forKey: .isPrivate) {
+            self.isPrivate = privateInt == 1
+        } else {
+            self.isPrivate = (try? container.decodeIfPresent(Bool.self, forKey: .isPrivate)) ?? false
+        }
         
-        // MOVE: All print statements after initialization
-        print("[FitConnectUser] Decoding user from Firestore...")
-        print("[FitConnectUser] ID: \(id ?? "nil")")
-        print("[FitConnectUser] Email: \(email)")
-        print("[FitConnectUser] Full name: \(fullName)")
-        print("[FitConnectUser] CreatedAt decoded successfully")
-        print("[FitConnectUser] Weight: \(weight ?? 0)")
-        print("[FitConnectUser] Height: \(height ?? 0)")
-        print("[FitConnectUser] Phone: \(phoneNumber ?? 0)")
-        print("[FitConnectUser] EmailVerified: \(isEmailVerified ?? false)")
-        print("[FitConnectUser] Role: \(role)")
-        print("[FitConnectUser] User decoded successfully!")
+        self.subscription = (try? container.decodeIfPresent(SubscriptionStatus.self, forKey: .subscription)) ?? .free
+        
+        self.providerData = try? container.decodeIfPresent([[String: String]].self, forKey: .providerData)
+        
+        print("[FitConnectUser] User decoded successfully: \(fullName) (\(role))")
     }
 
     enum SubscriptionStatus: String, Codable {
@@ -205,5 +195,11 @@ struct FitConnectUser: Identifiable, Codable {
         self.lastLoginAt = lastLoginAt
         self.bio = bio
         self.isPrivate = isPrivate
+    }
+}
+
+extension String {
+    var nilIfEmpty: String? {
+        return self.isEmpty ? nil : self
     }
 }

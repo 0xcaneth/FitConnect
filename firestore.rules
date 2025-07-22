@@ -111,6 +111,27 @@ service cloud.firestore {
       }
 
       // ----------------------------
+      // WORKOUT SESSIONS
+      // ----------------------------
+      match /workoutSessions/{workoutId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+
+      // ----------------------------
+      // WORKOUT STATS
+      // ----------------------------
+      match /stats/{statsId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+
+      // ----------------------------
+      // FAVORITE WORKOUTS
+      // ----------------------------
+      match /favoriteWorkouts/{workoutId} {
+        allow read, write: if canAccessUserData(userId);
+      }
+
+      // ----------------------------
       // OTHER USER SUBCOLLECTIONS
       // ----------------------------
       match /badges/{badgeId} {
@@ -308,6 +329,20 @@ service cloud.firestore {
       allow update: if isDietitian();
       
       // No deletion
+      allow delete: if false;
+    }
+
+    // ----------------------------
+    // WORKOUT TEMPLATES COLLECTION (Global workout templates)
+    // ----------------------------
+    match /workoutTemplates/{templateId} {
+      // Anyone can read active workout templates
+      allow read: if request.auth != null;
+      
+      // Only admin/system can create/update templates
+      allow create, update: if false; // Will be managed via Firebase console/admin
+      
+      // No deletion allowed
       allow delete: if false;
     }
 

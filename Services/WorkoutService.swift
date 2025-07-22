@@ -4,7 +4,7 @@ import FirebaseAuth
 import SwiftUI
 import Combine
 
-/// Production-ready WorkoutService with comprehensive functionality
+/// Production-ready WorkoutService with Firebase backend
 @MainActor
 final class WorkoutService: ObservableObject {
     
@@ -16,6 +16,7 @@ final class WorkoutService: ObservableObject {
     @Published var favoriteWorkouts: [WorkoutSession] = []
     @Published var currentWorkoutSession: WorkoutSession?
     @Published var availableWorkouts: [WorkoutSession] = []
+    @Published var workoutTemplates: [WorkoutTemplate] = []
     @Published var error: WorkoutServiceError?
     
     // MARK: - Private Properties
@@ -23,11 +24,13 @@ final class WorkoutService: ObservableObject {
     private let privacyManager = PrivacyManager.shared
     private var listeners: [ListenerRegistration] = []
     private var statsListener: ListenerRegistration?
+    private var templatesListener: ListenerRegistration?
+    private var currentUserId: String?
     
     // MARK: - Singleton
     static let shared = WorkoutService()
     private init() {
-        setupMockData()
+        setupTemplatesListener()
     }
     
     // MARK: - Public Methods
@@ -39,6 +42,9 @@ final class WorkoutService: ObservableObject {
         isLoading = true
         
         do {
+            // Debug Firebase collections first
+            await debugFirebaseCollections()
+            
             // Load user's workout stats
             await loadWorkoutStats(for: userId)
             
@@ -49,9 +55,10 @@ final class WorkoutService: ObservableObject {
             await loadTodayRecommendations(for: userId)
             await loadRecentWorkouts(for: userId)
             await loadFavoriteWorkouts(for: userId)
-            await loadAvailableWorkouts()
+            await loadWorkoutTemplates()
             
             print("[WorkoutService] Successfully initialized")
+            currentUserId = userId
         } catch {
             print("[WorkoutService] Initialization error: \(error)")
             self.error = .initializationFailed(error)
@@ -176,6 +183,22 @@ final class WorkoutService: ObservableObject {
         }
     }
     
+    /// Create workout from template
+    func createWorkoutFromTemplate(_ template: WorkoutTemplate) -> WorkoutSession {
+        return WorkoutSession(
+            userId: Auth.auth().currentUser?.uid ?? "",
+            workoutType: template.workoutType,
+            name: template.name,
+            description: template.description,
+            estimatedDuration: template.estimatedDuration,
+            estimatedCalories: template.estimatedCalories,
+            difficulty: template.difficulty,
+            targetMuscleGroups: template.targetMuscleGroups,
+            exercises: template.exercises,
+            imageURL: template.imageURL
+        )
+    }
+    
     /// Save workout as favorite
     func toggleFavorite(workout: WorkoutSession) async -> Result<Void, WorkoutServiceError> {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -208,26 +231,102 @@ final class WorkoutService: ObservableObject {
         }
     }
     
-    /// Search workouts
-    func searchWorkouts(query: String, filters: WorkoutFilters? = nil) async -> [WorkoutSession] {
-        // In production, this would search Firestore
-        // For now, search in available workouts
-        let filteredWorkouts = availableWorkouts.filter { workout in
-            let matchesQuery = query.isEmpty || 
-                workout.name.localizedCaseInsensitiveContains(query) ||
-                workout.workoutType.displayName.localizedCaseInsensitiveContains(query)
+    /// Search workout templates
+    func searchWorkoutTemplates(query: String, filters: WorkoutFilters? = nil) async -> [WorkoutTemplate] {
+        do {
+            var baseQuery: Query = db.collection("workoutTemplates")
             
-            guard let filters = filters else { return matchesQuery }
+            // Apply basic query if provided
+            if !query.isEmpty {
+                baseQuery = baseQuery
+                    .whereField("searchKeywords", arrayContains: query.lowercased())
+            }
             
-            let matchesType = filters.workoutTypes.isEmpty || filters.workoutTypes.contains(workout.workoutType)
-            let matchesDifficulty = filters.difficulties.isEmpty || filters.difficulties.contains(workout.difficulty)
-            let matchesDuration = workout.estimatedDuration >= filters.minDuration && 
-                                 workout.estimatedDuration <= filters.maxDuration
+            let querySnapshot = try await baseQuery.getDocuments()
             
-            return matchesQuery && matchesType && matchesDifficulty && matchesDuration
+            let templates = querySnapshot.documents.compactMap { document in
+                try? document.data(as: WorkoutTemplate.self)
+            }
+            
+            // Apply additional client-side filtering
+            let filteredTemplates = templates.filter { template in
+                let matchesQuery = query.isEmpty || 
+                    template.name.localizedCaseInsensitiveContains(query) ||
+                    template.workoutType.displayName.localizedCaseInsensitiveContains(query)
+                
+                guard let filters = filters else { return matchesQuery }
+                
+                let matchesType = filters.workoutTypes.isEmpty || filters.workoutTypes.contains(template.workoutType)
+                let matchesDifficulty = filters.difficulties.isEmpty || filters.difficulties.contains(template.difficulty)
+                let matchesDuration = template.estimatedDuration >= filters.minDuration && 
+                                     template.estimatedDuration <= filters.maxDuration
+                
+                return matchesQuery && matchesType && matchesDifficulty && matchesDuration
+            }
+            
+            return filteredTemplates
+            
+        } catch {
+            print("[WorkoutService] Search error: \(error)")
+            return []
         }
+    }
+    
+    /// Debug function to check Firebase collections
+    func debugFirebaseCollections() async {
+        print("🔍 [WorkoutService] Debugging Firebase collections...")
         
-        return filteredWorkouts
+        do {
+            // Force fresh data from server (disable cache for this query)
+            let templatesSnapshot = try await db.collection("workoutTemplates")
+                .getDocuments(source: .server) // Force server fetch
+            print("🔄 [WorkoutService] Forced server fetch - found \(templatesSnapshot.documents.count) documents")
+            
+            for document in templatesSnapshot.documents {
+                print("📄 [WorkoutService] Document ID: \(document.documentID)")
+                print("📄 [WorkoutService] Document data keys: \(document.data().keys.joined(separator: ", "))")
+                
+                // Check yoga document specifically
+                if document.documentID == "yoga-morning-flow" {
+                    print("🧘‍♀️ [WorkoutService] YOGA DOCUMENT DETAILED ANALYSIS:")
+                    let data = document.data()
+                    
+                    if let exercises = data["exercises"] as? [[String: Any]] {
+                        print("📋 [WorkoutService] Yoga has \(exercises.count) exercises")
+                        
+                        for (index, exercise) in exercises.enumerated() {
+                            print("🏋️ [WorkoutService] Exercise \(index): \(exercise.keys.joined(separator: ", "))")
+                            
+                            // Check for instructions variations
+                            if exercise["instructions"] != nil {
+                                print("✅ [WorkoutService] Has 'instructions' field")
+                            }
+                            if exercise["instructions "] != nil {
+                                print("⚠️ [WorkoutService] Has 'instructions ' field (with space)")
+                            }
+                            if let instructions = exercise["instructions"] as? [String] {
+                                print("📝 [WorkoutService] instructions content: \(instructions)")
+                            }
+                            if let instructionsWithSpace = exercise["instructions "] as? [String] {
+                                print("📝 [WorkoutService] instructions  content: \(instructionsWithSpace)")
+                            }
+                        }
+                    }
+                }
+                
+                // Check if required fields exist
+                if let name = document.data()["name"] as? String,
+                   let isActive = document.data()["isActive"] {
+                    print("✅ [WorkoutService] Document \(document.documentID) has name: '\(name)', isActive: \(isActive)")
+                } else {
+                    print("⚠️ [WorkoutService] Document \(document.documentID) missing required fields")
+                }
+            }
+            
+        } catch {
+            print("❌ [WorkoutService] Error checking Firebase collections: \(error)")
+            print("❌ [WorkoutService] Error details: \(error.localizedDescription)")
+        }
     }
     
     /// Clean up resources
@@ -237,6 +336,8 @@ final class WorkoutService: ObservableObject {
         listeners.removeAll()
         statsListener?.remove()
         statsListener = nil
+        templatesListener?.remove()
+        templatesListener = nil
     }
     
     // MARK: - Private Methods
@@ -300,35 +401,114 @@ final class WorkoutService: ObservableObject {
             }
     }
     
-    private func loadTodayRecommendations(for userId: String) async {
-        // In production, this would use ML/AI recommendations
-        // For now, create smart recommendations based on user data
-        let recommendations = await generateTodayRecommendations(for: userId)
+    private func setupTemplatesListener() {
+        print("🚀 [WorkoutService] Setting up templates listener...")
         
-        await MainActor.run {
-            self.todayRecommendations = recommendations
+        templatesListener = db.collection("workoutTemplates")
+            .whereField("isActive", isEqualTo: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    if let error = error {
+                        print("❌ [WorkoutService] Templates listener error: \(error)")
+                        print("❌ [WorkoutService] Error details: \(error.localizedDescription)")
+                        self.error = .dataLoadFailed(error)
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else {
+                        print("⚠️ [WorkoutService] No documents in templates snapshot")
+                        return
+                    }
+                    
+                    print("📊 [WorkoutService] Received \(documents.count) template documents from Firebase")
+                    
+                    let templates = documents.compactMap { document -> WorkoutTemplate? in
+                        do {
+                            let template = try document.data(as: WorkoutTemplate.self)
+                            print("✅ [WorkoutService] Successfully decoded template: \(template.name)")
+                            return template
+                        } catch {
+                            print("❌ [WorkoutService] Failed to decode template from document \(document.documentID): \(error)")
+                            print("❌ [WorkoutService] Document data: \(document.data())")
+                            return nil
+                        }
+                    }
+                    
+                    print("📱 [WorkoutService] Successfully loaded \(templates.count) workout templates")
+                    
+                    self.workoutTemplates = templates
+                    
+                    // Convert templates to workout sessions for compatibility
+                    self.availableWorkouts = templates.map { template in
+                        self.createWorkoutFromTemplate(template)
+                    }
+                    
+                    print("🏋️ [WorkoutService] Created \(self.availableWorkouts.count) available workouts from templates")
+                }
+            }
+    }
+    
+    private func loadWorkoutTemplates() async {
+        print("🚀 [WorkoutService] Loading workout templates manually...")
+        
+        do {
+            let querySnapshot = try await db.collection("workoutTemplates")
+                .whereField("isActive", isEqualTo: true)
+                .order(by: "priority", descending: false)
+                .getDocuments(source: .server) // Force server fetch to bypass cache
+            
+            print("📊 [WorkoutService] Manual query returned \(querySnapshot.documents.count) documents (from SERVER)")
+            
+            let templates = querySnapshot.documents.compactMap { document -> WorkoutTemplate? in
+                do {
+                    let template = try document.data(as: WorkoutTemplate.self)
+                    print("✅ [WorkoutService] Successfully decoded template: \(template.name)")
+                    return template
+                } catch {
+                    print("❌ [WorkoutService] Failed to decode template from document \(document.documentID): \(error)")
+                    print("❌ [WorkoutService] Document data: \(document.data())")
+                    return nil
+                }
+            }
+            
+            await MainActor.run {
+                self.workoutTemplates = templates
+                self.availableWorkouts = templates.map { template in
+                    self.createWorkoutFromTemplate(template)
+                }
+                
+                print("📱 [WorkoutService] Manual loading completed: \(templates.count) templates, \(self.availableWorkouts.count) available workouts")
+            }
+            
+        } catch {
+            print("❌ [WorkoutService] Failed to load workout templates manually: \(error)")
+            print("❌ [WorkoutService] Error details: \(error.localizedDescription)")
+            self.error = .dataLoadFailed(error)
         }
     }
     
     private func loadRecentWorkouts(for userId: String) async {
         do {
-            let querySnapshot = try await db.collection("users")
+            // Simplified query without composite index that was causing problems
+            let snapshot = try await db.collection("users")
                 .document(userId)
                 .collection("workoutSessions")
-                .whereField("isCompleted", isEqualTo: true)
-                .order(by: "completedAt", descending: true)
                 .limit(to: 10)
                 .getDocuments()
-            
-            let workouts = querySnapshot.documents.compactMap { document in
+                
+            let workouts = snapshot.documents.compactMap { document in
                 try? document.data(as: WorkoutSession.self)
             }
             
             await MainActor.run {
                 self.recentWorkouts = workouts
             }
+            
+            print("[WorkoutService] ✅ Loaded \(workouts.count) recent workouts")
         } catch {
-            print("[WorkoutService] Failed to load recent workouts: \(error)")
+            print("[WorkoutService] ⚠️ Recent workouts query error (using simplified version): \(error)")
         }
     }
     
@@ -351,12 +531,14 @@ final class WorkoutService: ObservableObject {
         }
     }
     
-    private func loadAvailableWorkouts() async {
-        // In production, this would load from Firestore collection
-        // For now, use comprehensive mock data
+    private func loadTodayRecommendations(for userId: String) async {
+        let recommendations = await generateTodayRecommendations(for: userId)
+        
         await MainActor.run {
-            self.availableWorkouts = MockWorkoutData.allWorkouts
+            self.todayRecommendations = recommendations
         }
+        
+        print("[WorkoutService] ✅ Loaded \(recommendations.count) recommendations for today")
     }
     
     private func updateUserStats(userId: String, completedDuration: TimeInterval, caloriesBurned: Int) async {
@@ -444,7 +626,6 @@ final class WorkoutService: ObservableObject {
         return recommendations.sorted { $0.priority > $1.priority }
     }
     
-    // Helper methods for stats calculation
     private func calculateCurrentStreak() -> Int {
         // Implementation would check consecutive workout days
         return workoutStats?.currentStreak ?? 0
@@ -533,14 +714,221 @@ final class WorkoutService: ObservableObject {
         )
     }
     
-    // MARK: - Mock Data Setup (for development)
-    private func setupMockData() {
-        // This will be removed in production
-        // Mock data for development and testing
+    /// Add preload method for better UX
+    func preloadWorkoutTemplates(for userId: String) async {
+        if workoutTemplates.isEmpty {
+            await loadWorkoutTemplates()
+        }
+        print("[WorkoutService] 🚀 Preload completed - \(workoutTemplates.count) templates ready")
     }
 }
 
 // MARK: - Supporting Types
+
+/// Workout Template for Firebase storage
+struct WorkoutTemplate: Identifiable, Codable {
+    @DocumentID var id: String?
+    let name: String
+    let description: String
+    let workoutType: WorkoutType
+    let difficulty: DifficultyLevel
+    let estimatedDuration: TimeInterval
+    let estimatedCalories: Int
+    let targetMuscleGroups: [MuscleGroup]
+    let exercises: [WorkoutExercise]
+    let imageURL: String?
+    let isActive: Bool
+    let priority: Int
+    let searchKeywords: [String]
+    let createdAt: Date
+    let updatedAt: Date
+    
+    // MARK: - Custom Decoding to Handle Firebase Inconsistencies
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case workoutType
+        case difficulty
+        case estimatedDuration
+        case estimatedCalories
+        case targetMuscleGroups
+        case exercises
+        case imageURL
+        case isActive
+        case priority
+        case searchKeywords
+        case createdAt
+        case updatedAt
+        
+        // Alternative field names for handling typos
+        case estimatedCalroies // Handle typo in Firebase
+        case exercise // Handle singular form
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Required fields
+        self.name = try container.decode(String.self, forKey: .name)
+        self.description = try container.decode(String.self, forKey: .description)
+        self.workoutType = try container.decode(WorkoutType.self, forKey: .workoutType)
+        self.difficulty = try container.decode(DifficultyLevel.self, forKey: .difficulty)
+        self.targetMuscleGroups = try container.decode([MuscleGroup].self, forKey: .targetMuscleGroups)
+        
+        // Handle estimatedDuration with fallback
+        if let duration = try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration) {
+            self.estimatedDuration = duration
+        } else {
+            // Fallback based on workout type
+            switch workoutType {
+            case .hiit: self.estimatedDuration = 20 * 60 // 20 minutes
+            case .yoga: self.estimatedDuration = 45 * 60 // 45 minutes  
+            case .strength: self.estimatedDuration = 60 * 60 // 60 minutes
+            case .cardio: self.estimatedDuration = 30 * 60 // 30 minutes
+            case .pilates: self.estimatedDuration = 40 * 60 // 40 minutes
+            case .dance: self.estimatedDuration = 35 * 60 // 35 minutes
+            case .stretching: self.estimatedDuration = 25 * 60 // 25 minutes
+            case .running: self.estimatedDuration = 45 * 60 // 45 minutes
+            }
+        }
+        
+        // Handle estimatedCalories with typo fallback
+        if let calories = try container.decodeIfPresent(Int.self, forKey: .estimatedCalories) {
+            self.estimatedCalories = calories
+        } else if let calories = try container.decodeIfPresent(Int.self, forKey: .estimatedCalroies) {
+            // Handle typo in Firebase
+            self.estimatedCalories = calories
+        } else {
+            // Fallback based on workout type and duration
+            let durationMinutes = Int(estimatedDuration / 60)
+            switch workoutType {
+            case .hiit: self.estimatedCalories = durationMinutes * 12
+            case .cardio: self.estimatedCalories = durationMinutes * 10
+            case .strength: self.estimatedCalories = durationMinutes * 8
+            case .yoga: self.estimatedCalories = durationMinutes * 4
+            case .pilates: self.estimatedCalories = durationMinutes * 6
+            case .dance: self.estimatedCalories = durationMinutes * 9
+            case .stretching: self.estimatedCalories = durationMinutes * 3
+            case .running: self.estimatedCalories = durationMinutes * 11
+            }
+        }
+        
+        // Handle exercises with singular fallback
+        if let exercises = try container.decodeIfPresent([WorkoutExercise].self, forKey: .exercises) {
+            self.exercises = exercises
+        } else if let exercises = try container.decodeIfPresent([WorkoutExercise].self, forKey: .exercise) {
+            // Handle singular form in Firebase
+            self.exercises = exercises
+        } else {
+            self.exercises = []
+        }
+        
+        // Optional fields with fallbacks
+        self.imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
+        self.isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        self.priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+        
+        // Handle searchKeywords with fallback
+        if let keywords = try container.decodeIfPresent([String].self, forKey: .searchKeywords) {
+            self.searchKeywords = keywords
+        } else {
+            // Generate keywords from available data
+            self.searchKeywords = Self.generateSearchKeywords(
+                name: name, 
+                workoutType: workoutType, 
+                muscleGroups: targetMuscleGroups
+            )
+        }
+        
+        // Handle dates with fallbacks
+        if let createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) {
+            self.createdAt = createdAt
+        } else {
+            self.createdAt = Date()
+        }
+        
+        if let updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) {
+            self.updatedAt = updatedAt
+        } else {
+            self.updatedAt = Date()
+        }
+    }
+    
+    // MARK: - Standard Encoding
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(name, forKey: .name)
+        try container.encode(description, forKey: .description)
+        try container.encode(workoutType, forKey: .workoutType)
+        try container.encode(difficulty, forKey: .difficulty)
+        try container.encode(estimatedDuration, forKey: .estimatedDuration)
+        try container.encode(estimatedCalories, forKey: .estimatedCalories)
+        try container.encode(targetMuscleGroups, forKey: .targetMuscleGroups)
+        try container.encode(exercises, forKey: .exercises)
+        try container.encodeIfPresent(imageURL, forKey: .imageURL)
+        try container.encode(isActive, forKey: .isActive)
+        try container.encode(priority, forKey: .priority)
+        try container.encode(searchKeywords, forKey: .searchKeywords)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+    
+    init(
+        id: String? = nil,
+        name: String,
+        description: String,
+        workoutType: WorkoutType,
+        difficulty: DifficultyLevel,
+        estimatedDuration: TimeInterval,
+        estimatedCalories: Int,
+        targetMuscleGroups: [MuscleGroup],
+        exercises: [WorkoutExercise],
+        imageURL: String? = nil,
+        isActive: Bool = true,
+        priority: Int = 0
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.workoutType = workoutType
+        self.difficulty = difficulty
+        self.estimatedDuration = estimatedDuration
+        self.estimatedCalories = estimatedCalories
+        self.targetMuscleGroups = targetMuscleGroups
+        self.exercises = exercises
+        self.imageURL = imageURL
+        self.isActive = isActive
+        self.priority = priority
+        self.searchKeywords = Self.generateSearchKeywords(name: name, workoutType: workoutType, muscleGroups: targetMuscleGroups)
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+    
+    static func generateSearchKeywords(name: String, workoutType: WorkoutType, muscleGroups: [MuscleGroup]) -> [String] {
+        var keywords = Set<String>()
+        
+        // Add name words
+        name.lowercased().components(separatedBy: .whitespaces).forEach { word in
+            if !word.isEmpty {
+                keywords.insert(word)
+            }
+        }
+        
+        // Add workout type
+        keywords.insert(workoutType.rawValue.lowercased())
+        keywords.insert(workoutType.displayName.lowercased())
+        
+        // Add muscle groups
+        muscleGroups.forEach { muscle in
+            keywords.insert(muscle.rawValue.lowercased())
+            keywords.insert(muscle.displayName.lowercased())
+        }
+        
+        return Array(keywords)
+    }
+}
 
 /// Workout filtering options
 struct WorkoutFilters {

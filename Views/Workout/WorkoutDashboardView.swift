@@ -3,9 +3,11 @@ import SwiftUI
 /// Main Workout Dashboard - Apple HIG Compliant Design
 @available(iOS 16.0, *)
 struct WorkoutDashboardView: View {
+    @StateObject private var healthKitManager = HealthKitManager.shared
     @StateObject private var workoutService = WorkoutService.shared
     @EnvironmentObject private var session: SessionStore
-    
+    @Environment(\.dismiss) private var dismiss
+
     // UI States
     @State private var selectedWorkoutType: WorkoutType?
     @State private var showingWorkoutDetail = false
@@ -13,62 +15,108 @@ struct WorkoutDashboardView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var searchText = ""
     @State private var showingSearch = false
-    
+    @State private var showWorkoutTypeSelection = false
+    @State private var showExerciseSelection = false
+    @State private var selectedWorkoutTypeForExercises: WorkoutType?
+
     // Animation states
     @State private var headerAnimation = false
-    @State private var cardsAnimation: [Bool] = Array(repeating: false, count: 10)
-    
+    @State private var cardsAnimation: [Bool] = Array(repeating: false, count: 20)
+
     private var filteredWorkouts: [WorkoutSession] {
         if searchText.isEmpty && selectedWorkoutType == nil {
             return workoutService.availableWorkouts
         }
-        
+
         return workoutService.availableWorkouts.filter { workout in
             let matchesSearch = searchText.isEmpty || 
                 workout.name.localizedCaseInsensitiveContains(searchText) ||
-                workout.description?.localizedCaseInsensitiveContains(searchText) ?? false
+                workout.description?.localizedCaseInsensitiveContains(searchText) ?? false ||
+                workout.workoutType.displayName.localizedCaseInsensitiveContains(searchText) ||
+                workout.workoutType.rawValue.localizedCaseInsensitiveContains(searchText)
             
             let matchesType = selectedWorkoutType == nil || workout.workoutType == selectedWorkoutType
             
             return matchesSearch && matchesType
         }
     }
-    
+
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
                 ZStack {
                     // Premium background
                     backgroundView
-                    
+
                     // Scrollable content
                     ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 0) {
-                            // Header with user greeting and stats
+                            // Header with back button, greeting and action buttons
                             headerSection
                                 .padding(.horizontal, 20)
                                 .padding(.top, 20)
-                            
+
                             // Quick stats overview
                             statsSection
                                 .padding(.horizontal, 20)
                                 .padding(.top, 24)
-                            
+
+                            // Quick Actions
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Quick Start")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.primary)
+
+                                    Spacer()
+
+                                    Button("See All") {
+                                        showWorkoutTypeSelection = true
+                                    }
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.blue)
+                                }
+                                .padding(.horizontal, 20)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 16) {
+                                        ForEach(Array(WorkoutType.allCases.prefix(4)), id: \.self) { workoutType in
+                                            WorkoutQuickActionButton(workoutType: workoutType) {
+                                                print("[WorkoutDashboard] 🎯 Quick action selected: \(workoutType.displayName)")
+                                                
+                                                // Ensure clean state before navigation
+                                                selectedWorkoutTypeForExercises = nil
+                                                showExerciseSelection = false
+                                                showWorkoutTypeSelection = false
+                                                
+                                                // Set workout type and show exercise selection
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                    selectedWorkoutTypeForExercises = workoutType
+                                                    showExerciseSelection = true
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                }
+                            }
+                            .padding(.vertical, 24)
+
                             // Today's recommendations
                             recommendationsSection
                                 .padding(.horizontal, 20)
                                 .padding(.top, 32)
-                            
+
                             // Workout type filters
                             workoutTypeFilters
                                 .padding(.horizontal, 20)
                                 .padding(.top, 32)
-                            
+
                             // Available workouts
                             availableWorkoutsSection
                                 .padding(.horizontal, 20)
                                 .padding(.top, 24)
-                            
+
                             // Bottom spacing for tab bar
                             Spacer(minLength: 100)
                         }
@@ -91,7 +139,7 @@ struct WorkoutDashboardView: View {
                     .refreshable {
                         await refreshData()
                     }
-                    
+
                     // Search overlay
                     if showingSearch {
                         searchOverlay
@@ -101,8 +149,75 @@ struct WorkoutDashboardView: View {
             }
             .navigationBarHidden(true)
             .onAppear {
+                print(" [DEBUG] WorkoutDashboardView appeared!")
                 initializeDashboard()
                 startAnimationSequence()
+            }
+            .sheet(isPresented: $showWorkoutTypeSelection) {
+                WorkoutTypeSelectionView { workoutType in
+                    print("[WorkoutDashboard] 🎯 Workout type selected: \(workoutType.displayName)")
+                    print("[WorkoutDashboard] 🔄 Setting selectedWorkoutTypeForExercises...")
+                    
+                    // Handle workout type selection
+                    selectedWorkoutTypeForExercises = workoutType
+                    
+                    print("[WorkoutDashboard] 📊 selectedWorkoutTypeForExercises set to: \(selectedWorkoutTypeForExercises?.displayName ?? "nil")")
+                    print("[WorkoutDashboard] 🚀 About to set showExerciseSelection = true")
+                    
+                    showExerciseSelection = true
+                    
+                    print("[WorkoutDashboard] ✅ showExerciseSelection set to: \(showExerciseSelection)")
+                }
+                .presentationDragIndicator(.hidden)
+                .presentationCornerRadius(20)
+            }
+            .sheet(isPresented: $showExerciseSelection) {
+                Group {
+                    if let workoutType = selectedWorkoutTypeForExercises {
+                        ExerciseSelectionView(
+                            workoutType: workoutType,
+                            onExercisesSelected: { exercises in
+                                print("[WorkoutDashboard] ✅ Exercises selected: \(exercises.count) for \(workoutType.displayName)")
+                                
+                                // Immediate closure - no animation
+                                showExerciseSelection = false
+                                showWorkoutTypeSelection = false
+                                selectedWorkoutTypeForExercises = nil
+                                print("[WorkoutDashboard] 🔄 All sheets closed, back to dashboard")
+                            },
+                            onDismiss: {
+                                print("[WorkoutDashboard] 🔙 ExerciseSelectionView dismissed - back to WorkoutTypeSelection")
+                                // Instant back navigation
+                                showExerciseSelection = false
+                            }
+                        )
+                        .presentationDragIndicator(.hidden)
+                        .presentationCornerRadius(20)
+                        .onAppear {
+                            print("[WorkoutDashboard] 📱 ExerciseSelection sheet appeared for: \(workoutType.displayName)")
+                        }
+                    } else {
+                        VStack {
+                            Text("Error: No workout type selected")
+                                .foregroundColor(.red)
+                                .font(.headline)
+                            
+                            Button("Close") {
+                                showExerciseSelection = false
+                                showWorkoutTypeSelection = false
+                            }
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black)
+                        .onAppear {
+                            print("[WorkoutDashboard] ❌ ERROR: No workout type available for ExerciseSelectionView")
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $showingWorkoutDetail) {
                 if let workout = selectedWorkout {
@@ -119,9 +234,9 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Background
-    
+
     @ViewBuilder
     private var backgroundView: some View {
         ZStack {
@@ -136,7 +251,7 @@ struct WorkoutDashboardView: View {
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
+
             // Dynamic accent based on scroll
             if scrollOffset > 100 {
                 LinearGradient(
@@ -152,32 +267,50 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Header Section
-    
+
     @ViewBuilder
     private var headerSection: some View {
         VStack(spacing: 20) {
-            // Top bar with greeting and search
+            // Top bar with back button, greeting and action buttons
             HStack {
+                // Back button
+                Button(action: {
+                    // Navigate back to ClientHomeView - Use dismiss environment
+                    dismiss()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 44, height: 44)
+
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .scaleEffect(headerAnimation ? 1.0 : 0.8)
+                .opacity(headerAnimation ? 1.0 : 0.0)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Ready to Train?")
-                        .font(.system(size: 32, weight: .bold, design: .default))
+                        .font(.system(size: 28, weight: .bold, design: .default))
                         .foregroundColor(.white)
                         .scaleEffect(headerAnimation ? 1.0 : 0.9)
                         .opacity(headerAnimation ? 1.0 : 0.0)
-                    
+
                     if let userName = session.currentUser?.firstName {
                         Text("Hello, \(userName)")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.secondary)
                             .scaleEffect(headerAnimation ? 1.0 : 0.9)
                             .opacity(headerAnimation ? 1.0 : 0.0)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Search and notification buttons
                 HStack(spacing: 12) {
                     Button(action: {
@@ -189,19 +322,19 @@ struct WorkoutDashboardView: View {
                             Circle()
                                 .fill(.ultraThinMaterial)
                                 .frame(width: 44, height: 44)
-                            
+
                             Image(systemName: showingSearch ? "xmark" : "magnifyingglass")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.primary)
                         }
                     }
-                    
+
                     Button(action: {}) {
                         ZStack {
                             Circle()
                                 .fill(.ultraThinMaterial)
                                 .frame(width: 44, height: 44)
-                            
+
                             Image(systemName: "bell")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.primary)
@@ -213,9 +346,9 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Stats Section
-    
+
     @ViewBuilder
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -223,14 +356,14 @@ struct WorkoutDashboardView: View {
                 Text("Your Progress")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white)
-                
+
                 Spacer()
-                
+
                 Text("This Week")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
             }
-            
+
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
@@ -246,7 +379,7 @@ struct WorkoutDashboardView: View {
                 .scaleEffect(cardsAnimation[0] ? 1.0 : 0.9)
                 .opacity(cardsAnimation[0] ? 1.0 : 0.0)
                 .offset(y: cardsAnimation[0] ? 0 : 20)
-                
+
                 WorkoutStatsCard(
                     title: "Streak",
                     value: "\(workoutService.workoutStats?.currentStreak ?? 0)",
@@ -258,7 +391,7 @@ struct WorkoutDashboardView: View {
                 .scaleEffect(cardsAnimation[1] ? 1.0 : 0.9)
                 .opacity(cardsAnimation[1] ? 1.0 : 0.0)
                 .offset(y: cardsAnimation[1] ? 0 : 20)
-                
+
                 WorkoutStatsCard(
                     title: "Calories",
                     value: "\(workoutService.workoutStats?.monthlyCalorieProgress ?? 0)",
@@ -270,7 +403,7 @@ struct WorkoutDashboardView: View {
                 .scaleEffect(cardsAnimation[2] ? 1.0 : 0.9)
                 .opacity(cardsAnimation[2] ? 1.0 : 0.0)
                 .offset(y: cardsAnimation[2] ? 0 : 20)
-                
+
                 WorkoutStatsCard(
                     title: "Duration",
                     value: formatTotalDuration(workoutService.workoutStats?.totalDuration ?? 0),
@@ -285,9 +418,9 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Recommendations Section
-    
+
     @ViewBuilder
     private var recommendationsSection: some View {
         if !workoutService.todayRecommendations.isEmpty {
@@ -296,17 +429,20 @@ struct WorkoutDashboardView: View {
                     Text("Recommended for You")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.white)
-                    
+
                     Spacer()
-                    
+
                     Image(systemName: "sparkles")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.yellow)
                 }
-                
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 16) {
-                        ForEach(Array(workoutService.todayRecommendations.enumerated()), id: \.element.id) { index, recommendation in
+                        ForEach(Array(workoutService.todayRecommendations.enumerated()), id: \.element.workoutSession.safeId) { index, recommendation in
+                            let animationIndex = 4 + index
+                            let shouldAnimate = animationIndex < cardsAnimation.count
+                            
                             WorkoutCard(
                                 workout: recommendation.workoutSession,
                                 isRecommended: true,
@@ -316,9 +452,9 @@ struct WorkoutDashboardView: View {
                                 }
                             )
                             .frame(width: 280)
-                            .scaleEffect(cardsAnimation[4 + index] ? 1.0 : 0.9)
-                            .opacity(cardsAnimation[4 + index] ? 1.0 : 0.0)
-                            .offset(x: cardsAnimation[4 + index] ? 0 : 50)
+                            .scaleEffect(shouldAnimate && cardsAnimation[animationIndex] ? 1.0 : 0.9)
+                            .opacity(shouldAnimate && cardsAnimation[animationIndex] ? 1.0 : 0.0)
+                            .offset(x: shouldAnimate && cardsAnimation[animationIndex] ? 0 : 50)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -327,16 +463,16 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     // MARK: - Workout Type Filters
-    
+
     @ViewBuilder
     private var workoutTypeFilters: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Workout Types")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
                     // All types button
@@ -350,12 +486,12 @@ struct WorkoutDashboardView: View {
                                 Circle()
                                     .fill(selectedWorkoutType == nil ? .blue : Color.gray.opacity(0.3))
                                     .frame(width: 50, height: 50)
-                                
+
                                 Image(systemName: "square.grid.2x2")
                                     .font(.system(size: 20, weight: .semibold))
                                     .foregroundColor(.white)
                             }
-                            
+
                             Text("All")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.primary)
@@ -363,7 +499,7 @@ struct WorkoutDashboardView: View {
                         .frame(width: 70)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    
+
                     ForEach(WorkoutType.allCases, id: \.self) { type in
                         WorkoutQuickActionButton(workoutType: type) {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -378,9 +514,9 @@ struct WorkoutDashboardView: View {
             .padding(.horizontal, -20)
         }
     }
-    
+
     // MARK: - Available Workouts Section
-    
+
     @ViewBuilder
     private var availableWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -388,18 +524,21 @@ struct WorkoutDashboardView: View {
                 Text(selectedWorkoutType?.displayName ?? "All Workouts")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white)
-                
+
                 Spacer()
-                
+
                 Text("\(filteredWorkouts.count) workouts")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
             }
-            
+
             LazyVGrid(columns: [
                 GridItem(.flexible(), spacing: 16)
             ], spacing: 20) {
-                ForEach(Array(filteredWorkouts.enumerated()), id: \.element.id) { index, workout in
+                ForEach(Array(filteredWorkouts.enumerated()), id: \.element.safeId) { index, workout in
+                    let animationIndex = 6 + index
+                    let shouldAnimate = animationIndex < cardsAnimation.count
+                    
                     WorkoutCard(
                         workout: workout,
                         isRecommended: false,
@@ -408,16 +547,16 @@ struct WorkoutDashboardView: View {
                             showingWorkoutDetail = true
                         }
                     )
-                    .scaleEffect(cardsAnimation[6 + index] ? 1.0 : 0.9)
-                    .opacity(cardsAnimation[6 + index] ? 1.0 : 0.0)
-                    .offset(y: cardsAnimation[6 + index] ? 0 : 30)
+                    .scaleEffect(shouldAnimate && cardsAnimation[animationIndex] ? 1.0 : 0.9)
+                    .opacity(shouldAnimate && cardsAnimation[animationIndex] ? 1.0 : 0.0)
+                    .offset(y: shouldAnimate && cardsAnimation[animationIndex] ? 0 : 30)
                 }
             }
         }
     }
-    
+
     // MARK: - Search Overlay
-    
+
     @ViewBuilder
     private var searchOverlay: some View {
         VStack(spacing: 0) {
@@ -427,7 +566,7 @@ struct WorkoutDashboardView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.secondary)
-                    
+
                     TextField("Search workouts...", text: $searchText)
                         .font(.system(size: 16))
                         .textFieldStyle(PlainTextFieldStyle())
@@ -439,7 +578,7 @@ struct WorkoutDashboardView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(.ultraThinMaterial)
                 )
-                
+
                 Button("Cancel") {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                         showingSearch = false
@@ -454,23 +593,45 @@ struct WorkoutDashboardView: View {
             .padding(.bottom, 20)
             .background(.thinMaterial)
             
-            Spacer()
+            // Search Results
+            if !searchText.isEmpty {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(filteredWorkouts, id: \.safeId) { workout in
+                            WorkoutCard(
+                                workout: workout,
+                                isRecommended: false,
+                                onTap: {
+                                    selectedWorkout = workout
+                                    showingWorkoutDetail = true
+                                    showingSearch = false
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                }
+                .background(.thinMaterial)
+            } else {
+                Spacer()
+            }
         }
         .ignoresSafeArea()
     }
-    
+
     // MARK: - Helper Methods
-    
+
     private func initializeDashboard() {
-        print("[WorkoutDashboardView] 🏠 Dashboard initialized")
+        print("[WorkoutDashboardView] Dashboard initialized")
     }
-    
+
     private func startAnimationSequence() {
         // Header animation
         withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
             headerAnimation = true
         }
-        
+
         // Staggered card animations
         for index in 0..<cardsAnimation.count {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 + (Double(index) * 0.05)) {
@@ -482,28 +643,28 @@ struct WorkoutDashboardView: View {
             }
         }
     }
-    
+
     private func refreshData() async {
         if let userId = session.currentUserId {
             await workoutService.initialize(for: userId)
         }
     }
-    
+
     private func startWorkout(_ workout: WorkoutSession) {
         Task {
             let result = await workoutService.startWorkout(workout)
             switch result {
             case .success(let workoutId):
-                print("[WorkoutDashboardView] ✅ Workout started: \(workoutId)")
+                print("[WorkoutDashboardView] Workout started: \(workoutId)")
                 // Navigate to workout timer view
-                
+
             case .failure(let error):
-                print("[WorkoutDashboardView] ❌ Failed to start workout: \(error)")
+                print("[WorkoutDashboardView] Failed to start workout: \(error)")
                 // Show error alert
             }
         }
     }
-    
+
     private func formatTotalDuration(_ duration: TimeInterval) -> String {
         let hours = Int(duration / 3600)
         if hours > 0 {
@@ -523,7 +684,7 @@ struct WorkoutDashboardView_Previews: PreviewProvider {
     static var previews: some View {
         let session = SessionStore.previewStore(isLoggedIn: true)
         session.currentUser?.firstName = "Alex"
-        
+
         return WorkoutDashboardView()
             .environmentObject(session)
             .preferredColorScheme(.dark)
